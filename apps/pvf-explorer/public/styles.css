@@ -46,16 +46,25 @@ body {
   background: linear-gradient(180deg, #f4efe8, #d9d0c3);
 }
 
+.toolbar__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
 .toolbar__group {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
   font-size: 14px;
   font-weight: 600;
 }
 
 .toolbar__group select {
-  min-width: 280px;
+  min-width: 180px;
   padding: 4px 8px;
   border: 1px solid #8f8577;
   background: #fffdf8;
@@ -65,12 +74,18 @@ body {
 .toolbar__meta {
   font-size: 13px;
   color: #53493e;
+  text-align: right;
 }
 
 .layout {
   display: grid;
-  grid-template-columns: 360px 1fr;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
   min-height: calc(100vh - 79px);
+}
+
+.sidebar,
+.content {
+  min-width: 0;
 }
 
 .sidebar {
@@ -90,7 +105,8 @@ body {
 
 .tree {
   height: calc(100vh - 120px);
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   padding: 8px 10px 18px;
   font-family: "Cascadia Mono", "Consolas", monospace;
   font-size: 13px;
@@ -98,7 +114,22 @@ body {
 }
 
 .tree details {
-  margin-left: 14px;
+  min-width: 0;
+}
+
+.tree__children {
+  min-width: 0;
+  padding-left: 14px;
+}
+
+.tree summary,
+.tree button {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .tree summary {
@@ -123,7 +154,6 @@ body {
 }
 
 .tree button {
-  width: 100%;
   border: 0;
   background: transparent;
   padding: 0;
@@ -158,6 +188,9 @@ body {
 
 .content__path {
   padding: 8px 10px 10px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   font-family: "Cascadia Mono", "Consolas", monospace;
   font-size: 13px;
   color: #5a4c3f;
@@ -183,6 +216,15 @@ body {
     min-height: 100vh;
     margin: 0;
     border: 0;
+  }
+
+  .toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .toolbar__meta {
+    text-align: left;
   }
 
   .layout {

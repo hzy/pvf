@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { FixtureStore } from "./fixture-store.ts";
+import { DEFAULT_TEXT_PROFILE, type TextProfile } from "./pvf.ts";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(currentDir, "../../..");
@@ -41,6 +42,10 @@ function getStaticContentType(filePath: string): string {
   return "text/html; charset=utf-8";
 }
 
+function parseTextProfile(value: string | null): TextProfile {
+  return value === "traditional" ? "traditional" : DEFAULT_TEXT_PROFILE;
+}
+
 async function handleApiRequest(requestUrl: URL, response: ServerResponse): Promise<void> {
   if (requestUrl.pathname === "/api/archives") {
     sendJson(response, 200, { archives: await store.listArchives() });
@@ -70,6 +75,7 @@ async function handleApiRequest(requestUrl: URL, response: ServerResponse): Prom
 
   if (requestUrl.pathname === "/api/file") {
     const filePath = requestUrl.searchParams.get("path");
+    const textProfile = parseTextProfile(requestUrl.searchParams.get("textProfile"));
 
     if (!filePath) {
       sendJson(response, 400, { error: "Missing path query parameter." });
@@ -79,7 +85,8 @@ async function handleApiRequest(requestUrl: URL, response: ServerResponse): Prom
     sendJson(response, 200, {
       archive: archiveId,
       path: filePath,
-      content: await archive.readRenderedFile(filePath),
+      textProfile,
+      content: await archive.readRenderedFile(filePath, textProfile),
     });
     return;
   }

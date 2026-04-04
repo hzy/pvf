@@ -5,7 +5,12 @@ const HEADER_TAIL_SIZE = 16;
 const ROOT_PATH = "";
 
 const filePathDecoder = new TextDecoder("euc-kr");
-const stringTableDecoder = new TextDecoder("big5");
+const simplifiedTextDecoder = new TextDecoder("gb18030");
+const traditionalTextDecoder = new TextDecoder("big5");
+
+export type TextProfile = "simplified" | "traditional";
+
+export const DEFAULT_TEXT_PROFILE: TextProfile = "simplified";
 
 export interface PvfHeader {
   sizeGuid: number;
@@ -38,6 +43,11 @@ interface DirectoryNode {
   path: string;
   directories: Map<string, DirectoryNode>;
   files: Map<string, PvfFileRecord>;
+}
+
+interface TextResources {
+  stringTable: Map<number, string>;
+  nStringMap: Map<string, string>;
 }
 
 function createDirectoryNode(name: string, path: string): DirectoryNode {
@@ -79,8 +89,12 @@ function decodeFilePath(bytes: Buffer): string {
   return trimTrailingNulls(filePathDecoder.decode(bytes));
 }
 
-function decodeStringValue(bytes: Buffer): string {
-  return trimTrailingNulls(stringTableDecoder.decode(bytes));
+function getTextDecoder(textProfile: TextProfile) {
+  return textProfile === "traditional" ? traditionalTextDecoder : simplifiedTextDecoder;
+}
+
+function decodeStringValue(bytes: Buffer, textProfile: TextProfile): string {
+  return trimTrailingNulls(getTextDecoder(textProfile).decode(bytes));
 }
 
 function splitLines(input: string): string[] {
@@ -148,8 +162,7 @@ export class PvfArchive {
   #header: PvfHeader | undefined;
   #root = createDirectoryNode(ROOT_PATH, ROOT_PATH);
   #entries = new Map<string, PvfFileRecord>();
-  #stringTable = new Map<number, string>();
-  #nStringMap = new Map<string, string>();
+  #textResourcesByProfile = new Map<TextProfile, TextResources>();
   #loaded = false;
   #loading: Promise<void> | undefined;
 
@@ -207,10 +220,11 @@ export class PvfArchive {
     return [...directories, ...files];
   }
 
-  async readRenderedFile(path: string): Promise<string> {
+  async readRenderedFile(path: string, textProfile: TextProfile = DEFAULT_TEXT_PROFILE): Promise<string> {
     const record = this.#getFile(path);
     const fileBytes = await this.#readFileBytes(record);
-    return this.#renderFile(fileBytes);
+    const textResources = await this.#getTextResources(textProfile);
+    return this.#renderFile(fileBytes, textResources);
   }
 
   hasFile(path: string): boolean {
@@ -225,8 +239,6 @@ export class PvfArchive {
     decryptBuffer(headerTreeBytes, this.#header.dirTreeLength, this.#header.dirTreeChecksum);
 
     this.#parseDirectoryTree(headerTreeBytes);
-    await this.#loadStringTable();
-    await this.#loadNStringMap();
     this.#loaded = true;
   }
 
@@ -306,7 +318,25 @@ export class PvfArchive {
     current.files.set(normalizeArchivePath(record.fileName), record);
   }
 
-  async #loadStringTable(): Promise<void> {
+  async #getTextResources(textProfile: TextProfile): Promise<TextResources> {
+    const existingResources = this.#textResourcesByProfile.get(textProfile);
+
+    if (existingResources) {
+      return existingResources;
+    }
+
+    const stringTable = await this.#loadStringTable(textProfile);
+    const nStringMap = await this.#loadNStringMap(textProfile, stringTable);
+    const loadedResources: TextResources = {
+      stringTable,
+      nStringMap,
+    };
+
+    this.#textResourcesByProfile.set(textProfile, loadedResources);
+    return loadedResources;
+  }
+
+  async #loadStringTable(textProfile: TextProfile): Promise<Map<number, string>> {
     const stringTable = this.#entries.get("stringtable.bin");
 
     if (!stringTable) {
@@ -315,34 +345,41 @@ export class PvfArchive {
 
     const bytes = await this.#readFileBytes(stringTable);
     const count = bytes.readInt32LE(0);
+    const resolvedStringTable = new Map<number, string>();
 
     for (let index = 0; index < count; index += 1) {
       const start = bytes.readInt32LE(index * 4 + 4);
       const end = bytes.readInt32LE(index * 4 + 8);
       const length = end - start;
       const valueBytes = bytes.subarray(start + 4, start + 4 + length);
-      this.#stringTable.set(index, decodeStringValue(valueBytes));
+      resolvedStringTable.set(index, decodeStringValue(valueBytes, textProfile));
     }
+
+    return resolvedStringTable;
   }
 
-  async #loadNStringMap(): Promise<void> {
+  async #loadNStringMap(
+    textProfile: TextProfile,
+    stringTable: Map<number, string>,
+  ): Promise<Map<string, string>> {
     const nStringList = this.#entries.get("n_string.lst");
 
     if (!nStringList) {
-      return;
+      return new Map();
     }
 
     const bytes = await this.#readFileBytes(nStringList);
 
     if (bytes.length < 2 || bytes.readUInt16LE(0) !== 53424) {
-      return;
+      return new Map();
     }
 
     const referencedPaths = new Set<string>();
+    const resolvedNStringMap = new Map<string, string>();
 
     for (let offset = 2; offset + 10 <= bytes.length; offset += 10) {
       const pathIndex = bytes.readInt32LE(offset + 6);
-      const pathValue = this.#stringTable.get(pathIndex);
+      const pathValue = stringTable.get(pathIndex);
 
       if (pathValue) {
         referencedPaths.add(normalizeArchivePath(pathValue));
@@ -357,7 +394,7 @@ export class PvfArchive {
       }
 
       const fileBytes = await this.#readFileBytes(record);
-      const content = decodeStringValue(fileBytes);
+      const content = decodeStringValue(fileBytes, textProfile);
 
       for (const line of splitLines(content)) {
         if (!line.includes(">")) {
@@ -368,10 +405,12 @@ export class PvfArchive {
         const value = extractBetween(line, ">", "");
 
         if (key.length > 0 && value.length > 0) {
-          this.#nStringMap.set(key, value);
+          resolvedNStringMap.set(key, value);
         }
       }
     }
+
+    return resolvedNStringMap;
   }
 
   async #readFileBytes(record: PvfFileRecord): Promise<Buffer> {
@@ -386,7 +425,7 @@ export class PvfArchive {
     return encrypted.subarray(0, record.fileLength);
   }
 
-  #renderFile(bytes: Buffer): string {
+  #renderFile(bytes: Buffer, textResources: TextResources): string {
     const chunks: string[] = ["#PVF_File\r\n"];
 
     if (bytes.length >= 7) {
@@ -401,27 +440,27 @@ export class PvfArchive {
 
         if (kind === 10) {
           const beforeValue = bytes.readInt32LE(offset - 4);
-          chunks.push(`${this.#renderSpecial(kind, afterValue, beforeValue)}\r\n`);
+          chunks.push(`${this.#renderSpecial(kind, afterValue, beforeValue, textResources)}\r\n`);
           continue;
         }
 
         if (kind === 7) {
-          chunks.push(`\`${this.#renderSpecial(kind, afterValue, 0)}\`\r\n`);
+          chunks.push(`\`${this.#renderSpecial(kind, afterValue, 0, textResources)}\`\r\n`);
           continue;
         }
 
         if (kind === 2 || kind === 4) {
-          chunks.push(`${this.#renderSpecial(kind, afterValue, 0)}\t`);
+          chunks.push(`${this.#renderSpecial(kind, afterValue, 0, textResources)}\t`);
           continue;
         }
 
         if (kind === 6 || kind === 8) {
-          chunks.push(`{${kind}=\`${this.#renderSpecial(kind, afterValue, 0)}\`}\r\n`);
+          chunks.push(`{${kind}=\`${this.#renderSpecial(kind, afterValue, 0, textResources)}\`}\r\n`);
           continue;
         }
 
         if (kind === 5) {
-          chunks.push(`\r\n${this.#renderSpecial(kind, afterValue, 0)}\r\n`);
+          chunks.push(`\r\n${this.#renderSpecial(kind, afterValue, 0, textResources)}\r\n`);
         }
       }
 
@@ -431,7 +470,7 @@ export class PvfArchive {
     return chunks.join("");
   }
 
-  #renderSpecial(kind: number, afterValue: number, beforeValue: number): string {
+  #renderSpecial(kind: number, afterValue: number, beforeValue: number, textResources: TextResources): string {
     if (kind === 2) {
       return String(afterValue);
     }
@@ -441,12 +480,12 @@ export class PvfArchive {
     }
 
     if (kind === 5 || kind === 6 || kind === 7 || kind === 8) {
-      return this.#stringTable.get(afterValue) ?? "";
+      return textResources.stringTable.get(afterValue) ?? "";
     }
 
     if (kind === 10) {
-      const value = this.#stringTable.get(afterValue) ?? "";
-      return `<${beforeValue}::${value}\`${this.#nStringMap.get(value) ?? ""}\`>`;
+      const value = textResources.stringTable.get(afterValue) ?? "";
+      return `<${beforeValue}::${value}\`${textResources.nStringMap.get(value) ?? ""}\`>`;
     }
 
     return "";

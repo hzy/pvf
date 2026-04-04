@@ -23,9 +23,23 @@ test("renders equipment/equipment.lst in PVF text format", async () => {
   const archive = new PvfArchive("Script.pvf", fixturePath);
   await archive.ensureLoaded();
 
-  const content = await archive.readRenderedFile("equipment/equipment.lst");
+  const content = await archive.readRenderedFile("equipment/equipment.lst", "simplified");
   assert.match(content, /^#PVF_File\r\n/);
   assert.match(content, /character\/common\/jacket\/cloth\/vest_wool\.equ/);
+
+  await archive.close();
+});
+
+test("renders simplified Chinese n_string values when the PVF is simplified", async () => {
+  const archive = new PvfArchive("Script.pvf", fixturePath);
+  await archive.ensureLoaded();
+
+  const content = await archive.readRenderedFile(
+    "equipment/character/common/amulet/100300002.equ",
+    "simplified",
+  );
+
+  assert.match(content, /时空主宰者项链/);
 
   await archive.close();
 });

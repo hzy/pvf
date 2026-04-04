@@ -9,10 +9,19 @@
   <body>
     <div class="window">
       <header class="toolbar">
-        <label class="toolbar__group">
-          <span>PVF</span>
-          <select id="archive-select"></select>
-        </label>
+        <div class="toolbar__controls">
+          <label class="toolbar__group">
+            <span>PVF</span>
+            <select id="archive-select"></select>
+          </label>
+          <label class="toolbar__group">
+            <span>文本</span>
+            <select id="text-profile-select">
+              <option value="simplified" selected>简体</option>
+              <option value="traditional">繁体</option>
+            </select>
+          </label>
+        </div>
         <div id="archive-status" class="toolbar__meta">读取 fixtures 中的 PVF...</div>
       </header>
 

@@ -1,10 +1,17 @@
 const archiveSelect = document.querySelector("#archive-select");
+const textProfileSelect = document.querySelector("#text-profile-select");
 const archiveStatus = document.querySelector("#archive-status");
 const treeRoot = document.querySelector("#tree-root");
 const filePath = document.querySelector("#file-path");
 const fileContent = document.querySelector("#file-content");
 
+const textProfileLabels = {
+  simplified: "简体",
+  traditional: "繁体",
+};
+
 let activeArchive = "";
+let activeTextProfile = textProfileSelect.value;
 let activeFileButton = null;
 
 async function fetchJson(url) {
@@ -26,6 +33,14 @@ function clearTree() {
   treeRoot.innerHTML = "";
 }
 
+function createFileRequestUrl(selectedPath) {
+  return (
+    `/api/file?archive=${encodeURIComponent(activeArchive)}` +
+    `&path=${encodeURIComponent(selectedPath)}` +
+    `&textProfile=${encodeURIComponent(activeTextProfile)}`
+  );
+}
+
 function renderChildren(container, children) {
   for (const child of children) {
     if (child.kind === "directory") {
@@ -34,6 +49,7 @@ function renderChildren(container, children) {
 
       const summary = document.createElement("summary");
       summary.textContent = child.name;
+      summary.title = child.name;
       details.append(summary);
 
       const childContainer = document.createElement("div");
@@ -53,6 +69,7 @@ function renderChildren(container, children) {
     const button = document.createElement("button");
     button.type = "button";
     button.textContent = child.name;
+    button.title = child.name;
     button.dataset.path = child.path;
     button.addEventListener("click", () => {
       void loadFile(button, child.path);
@@ -85,57 +102,15 @@ async function loadFile(button, selectedPath) {
   activeFileButton = button;
   activeFileButton.classList.add("is-active");
   filePath.textContent = selectedPath;
+  filePath.title = selectedPath;
   fileContent.textContent = "读取文件内容...";
 
   try {
-    const { content } = await fetchJson(
-      `/api/file?archive=${encodeURIComponent(activeArchive)}&path=${encodeURIComponent(selectedPath)}`,
-    );
+    const { content } = await fetchJson(createFileRequestUrl(selectedPath));
     fileContent.textContent = content;
   } catch (error) {
     fileContent.textContent = error instanceof Error ? error.message : "读取失败";
   }
-}
-
-async function loadArchive(archiveId) {
-  activeArchive = archiveId;
-  clearTree();
-  filePath.textContent = "选择左侧文件查看内容";
-  fileContent.textContent = "# PVF Explorer";
-  setStatus(`解析 ${archiveId} 的目录树...`);
-
-  const { children, fileCount } = await fetchJson(
-    `/api/tree?archive=${encodeURIComponent(archiveId)}&path=`,
-  );
-
-  renderChildren(treeRoot, children);
-  setStatus(`${archiveId} 已加载，共 ${fileCount.toLocaleString("zh-CN")} 个文件`);
-  await openDefaultPreview();
-}
-
-async function loadArchives() {
-  setStatus("扫描 fixtures...");
-  const { archives } = await fetchJson("/api/archives");
-  archiveSelect.innerHTML = "";
-
-  for (const archive of archives) {
-    const option = document.createElement("option");
-    option.value = archive.id;
-    option.textContent = archive.relativePath;
-    archiveSelect.append(option);
-  }
-
-  if (archives.length === 0) {
-    setStatus("fixtures 中没有找到 .pvf 文件");
-    clearTree();
-    filePath.textContent = "没有可浏览的 PVF";
-    fileContent.textContent = "";
-    return;
-  }
-
-  activeArchive = archives[0].id;
-  archiveSelect.value = activeArchive;
-  await loadArchive(activeArchive);
 }
 
 async function openDefaultPreview() {
@@ -155,8 +130,72 @@ async function openDefaultPreview() {
   }
 }
 
+async function loadArchive(archiveId) {
+  activeArchive = archiveId;
+  clearTree();
+  filePath.textContent = "选择左侧文件查看内容";
+  filePath.title = "";
+  fileContent.textContent = "# PVF Explorer";
+  setStatus(`解析 ${archiveId} 的目录树...`);
+
+  const { children, fileCount } = await fetchJson(
+    `/api/tree?archive=${encodeURIComponent(archiveId)}&path=`,
+  );
+
+  renderChildren(treeRoot, children);
+  setStatus(
+    `${archiveId} 已加载，共 ${fileCount.toLocaleString("zh-CN")} 个文件，文本：${textProfileLabels[activeTextProfile]}`,
+  );
+  await openDefaultPreview();
+}
+
+async function reloadActivePreview() {
+  const selectedPath = activeFileButton?.dataset.path;
+
+  if (!selectedPath) {
+    setStatus(`文本已切换为${textProfileLabels[activeTextProfile]}`);
+    return;
+  }
+
+  await loadFile(activeFileButton, selectedPath);
+  setStatus(
+    `${activeArchive} 已加载，文本：${textProfileLabels[activeTextProfile]}`,
+  );
+}
+
+async function loadArchives() {
+  setStatus("扫描 fixtures...");
+  const { archives } = await fetchJson("/api/archives");
+  archiveSelect.innerHTML = "";
+
+  for (const archive of archives) {
+    const option = document.createElement("option");
+    option.value = archive.id;
+    option.textContent = archive.relativePath;
+    archiveSelect.append(option);
+  }
+
+  if (archives.length === 0) {
+    setStatus("fixtures 中没有找到 .pvf 文件");
+    clearTree();
+    filePath.textContent = "没有可浏览的 PVF";
+    filePath.title = "";
+    fileContent.textContent = "";
+    return;
+  }
+
+  activeArchive = archives[0].id;
+  archiveSelect.value = activeArchive;
+  await loadArchive(activeArchive);
+}
+
 archiveSelect.addEventListener("change", () => {
   void loadArchive(archiveSelect.value);
+});
+
+textProfileSelect.addEventListener("change", () => {
+  activeTextProfile = textProfileSelect.value;
+  void reloadActivePreview();
 });
 
 void loadArchives();
