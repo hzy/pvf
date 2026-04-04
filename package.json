@@ -4,6 +4,7 @@
   "packageManager": "pnpm@9.0.5",
   "scripts": {
     "dev": "pnpm --filter pvf-explorer dev",
+    "bench": "pnpm --filter pvf-explorer bench",
     "check": "pnpm --filter pvf-explorer check",
     "test": "pnpm --filter pvf-explorer test"
   },

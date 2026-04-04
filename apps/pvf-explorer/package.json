@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "node src/server.ts",
+    "bench": "node --expose-gc src/pvf.bench.ts",
     "check": "tsc --noEmit -p tsconfig.json",
     "test": "node --test --test-concurrency=1 src/**/*.test.ts"
   },

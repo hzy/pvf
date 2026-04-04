@@ -1,12 +1,8 @@
 import assert from "node:assert/strict";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import test from "node:test";
 
+import { expectedStrings, fixturePath, samplePaths } from "./pvf.fixture.ts";
 import { PvfArchive } from "./pvf.ts";
-
-const currentDir = path.dirname(fileURLToPath(import.meta.url));
-const fixturePath = path.resolve(currentDir, "../../../fixtures/Script.pvf");
 
 test("lists root directories from Script.pvf", async () => {
   const archive = new PvfArchive("Script.pvf", fixturePath);
@@ -23,7 +19,7 @@ test("renders equipment/equipment.lst in PVF text format", async () => {
   const archive = new PvfArchive("Script.pvf", fixturePath);
   await archive.ensureLoaded();
 
-  const content = await archive.readRenderedFile("equipment/equipment.lst", "simplified");
+  const content = await archive.readRenderedFile(samplePaths.equipmentList, "simplified");
   assert.match(content, /^#PVF_File\r\n/);
   assert.match(content, /character\/common\/jacket\/cloth\/vest_wool\.equ/);
 
@@ -34,12 +30,8 @@ test("renders simplified Chinese n_string values when the PVF is simplified", as
   const archive = new PvfArchive("Script.pvf", fixturePath);
   await archive.ensureLoaded();
 
-  const content = await archive.readRenderedFile(
-    "equipment/character/common/amulet/100300002.equ",
-    "simplified",
-  );
-
-  assert.match(content, /时空主宰者项链/);
+  const content = await archive.readRenderedFile(samplePaths.amulet, "simplified");
+  assert.match(content, new RegExp(expectedStrings.amuletName));
 
   await archive.close();
 });

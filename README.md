@@ -13,6 +13,7 @@ Node 24 + TypeScript PVF browser for the files under `fixtures/`.
 ```bash
 pnpm install
 pnpm dev
+pnpm bench
 pnpm check
 pnpm test
 ```
