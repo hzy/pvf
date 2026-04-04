@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PVF Explorer</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="window">
+      <header class="toolbar">
+        <label class="toolbar__group">
+          <span>PVF</span>
+          <select id="archive-select"></select>
+        </label>
+        <div id="archive-status" class="toolbar__meta">读取 fixtures 中的 PVF...</div>
+      </header>
+
+      <main class="layout">
+        <aside class="sidebar">
+          <div class="panel-title">目录</div>
+          <div id="tree-root" class="tree"></div>
+        </aside>
+
+        <section class="content">
+          <div class="content__header">
+            <div class="panel-title">预览</div>
+            <div id="file-path" class="content__path">选择左侧文件查看内容</div>
+          </div>
+          <pre id="file-content" class="content__body"># PVF Explorer</pre>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
