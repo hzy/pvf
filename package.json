@@ -6,5 +6,8 @@
     "dev": "pnpm --filter pvf-explorer dev",
     "check": "pnpm --filter pvf-explorer check",
     "test": "pnpm --filter pvf-explorer test"
+  },
+  "engines": {
+    "node": ">=24"
   }
 }

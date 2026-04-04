@@ -1,12 +1,12 @@
 # pvfParser
 
-Node 22 + TypeScript PVF browser for the files under `fixtures/`.
+Node 24 + TypeScript PVF browser for the files under `fixtures/`.
 
 ## Workspace
 
 - Root: `pnpm workspace`
 - App: `apps/pvf-explorer`
-- Runtime: Node.js native type stripping, no bundler / transpiler
+- Runtime: Node.js native TypeScript execution, no bundler / transpiler
 
 ## Commands
 
