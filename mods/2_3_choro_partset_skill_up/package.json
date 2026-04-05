@@ -1,15 +1,14 @@
 {
-  "name": "pvf-explorer",
+  "name": "@pvf-mods/2_3_choro_partset_skill_up",
   "private": true,
   "type": "module",
-  "dependencies": {
-    "@pvf/equ-ast": "workspace:*"
-  },
   "scripts": {
-    "dev": "node src/server.ts",
-    "bench": "node --expose-gc src/pvf.bench.ts",
+    "generate": "node src/cli.ts",
     "check": "tsc --noEmit -p tsconfig.json",
     "test": "node --test --test-concurrency=1 src/**/*.test.ts"
+  },
+  "dependencies": {
+    "@pvf/equ-ast": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

@@ -1,15 +1,17 @@
 {
-  "name": "pvf-explorer",
+  "name": "@pvf/equ-schema-miner",
   "private": true,
   "type": "module",
-  "dependencies": {
-    "@pvf/equ-ast": "workspace:*"
+  "exports": {
+    ".": "./src/index.ts"
   },
   "scripts": {
-    "dev": "node src/server.ts",
-    "bench": "node --expose-gc src/pvf.bench.ts",
     "check": "tsc --noEmit -p tsconfig.json",
-    "test": "node --test --test-concurrency=1 src/**/*.test.ts"
+    "test": "node --test --test-concurrency=1 src/**/*.test.ts",
+    "example": "node src/example.ts"
+  },
+  "dependencies": {
+    "@pvf/equ-ast": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

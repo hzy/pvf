@@ -6,8 +6,8 @@
     "prepare": "node --use-env-proxy scripts/prepare-fixtures.mjs",
     "dev": "pnpm --filter pvf-explorer dev",
     "bench": "pnpm --filter pvf-explorer bench",
-    "check": "pnpm --filter pvf-explorer check",
-    "test": "pnpm --filter pvf-explorer test"
+    "check": "pnpm -r --if-present check",
+    "test": "pnpm -r --if-present test"
   },
   "engines": {
     "node": ">=24"

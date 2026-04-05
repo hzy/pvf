@@ -162,12 +162,3 @@ test("visitor callbacks can mutate sections and tokens", async () => {
 
   await archive.close();
 });
-
-test("test", async () => {
-  await using archive = new PvfArchive("Script.pvf", fixturePath);
-  await archive.ensureLoaded();
-
-  const document = await archive.readEquDocument(samplePaths.amulet, "simplified");
-
-  console.log(document);
-});
