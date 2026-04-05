@@ -6,7 +6,11 @@ settings:
 
 importers:
 
-  .: {}
+  .:
+    dependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.12.2
 
   apps/pvf-explorer:
     dependencies:

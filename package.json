@@ -11,5 +11,8 @@
   },
   "engines": {
     "node": ">=24"
+  },
+  "dependencies": {
+    "@types/node": "^24.0.0"
   }
 }
