@@ -35,3 +35,14 @@ test("renders simplified Chinese n_string values when the PVF is simplified", as
 
   await archive.close();
 });
+
+test("renders .str files as plain decoded text", async () => {
+  const archive = new PvfArchive("Script.pvf", fixturePath);
+  await archive.ensureLoaded();
+
+  const content = await archive.readRenderedFile("equipment/equipment.kor.str", "simplified");
+  assert.match(content, /^\/\/ Script\\Equipment/);
+  assert.match(content, /upperset_name_cap>高级装扮-帽子/);
+
+  await archive.close();
+});

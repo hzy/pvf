@@ -259,7 +259,7 @@ export class PvfArchive {
     const record = this.#getFile(path);
     const fileBytes = await this.#readFileBytes(record);
     const textResources = await this.#getTextResources(textProfile);
-    return this.#renderFile(fileBytes, textResources);
+    return this.#renderFile(record, fileBytes, textProfile, textResources);
   }
 
   async readEquDocument(
@@ -495,7 +495,16 @@ export class PvfArchive {
     return encrypted.subarray(0, record.fileLength);
   }
 
-  #renderFile(bytes: Buffer, textResources: TextResources): string {
+  #renderFile(
+    record: PvfFileRecord,
+    bytes: Buffer,
+    textProfile: TextProfile,
+    textResources: TextResources,
+  ): string {
+    if (!this.#isStructuredScriptChunk(bytes)) {
+      return this.#renderPlainTextFile(record, bytes, textProfile);
+    }
+
     const chunks: string[] = ["#PVF_File\r\n"];
 
     if (bytes.length >= 7) {
@@ -548,6 +557,15 @@ export class PvfArchive {
     }
 
     return chunks.join("");
+  }
+
+  #renderPlainTextFile(record: PvfFileRecord, bytes: Buffer, textProfile: TextProfile): string {
+    const decoded = decodeStringValue(bytes, textProfile);
+    return decoded.length > 0 ? decoded : `[binary file] ${record.displayPath}`;
+  }
+
+  #isStructuredScriptChunk(bytes: Buffer): boolean {
+    return bytes.length >= 2 && bytes[0] === 0xb0 && bytes[1] === 0xd0;
   }
 
   #renderSpecial(
