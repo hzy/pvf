@@ -12,7 +12,11 @@ const fixturesDir = path.resolve(workspaceRoot, "fixtures");
 const publicDir = path.resolve(currentDir, "../public");
 const store = new FixtureStore(fixturesDir);
 
-function sendJson(response: ServerResponse, statusCode: number, data: unknown): void {
+function sendJson(
+  response: ServerResponse,
+  statusCode: number,
+  data: unknown,
+): void {
   response.writeHead(statusCode, {
     "content-type": "application/json; charset=utf-8",
     "cache-control": "no-store",
@@ -20,7 +24,12 @@ function sendJson(response: ServerResponse, statusCode: number, data: unknown): 
   response.end(JSON.stringify(data));
 }
 
-function sendText(response: ServerResponse, statusCode: number, body: string, contentType: string): void {
+function sendText(
+  response: ServerResponse,
+  statusCode: number,
+  body: string,
+  contentType: string,
+): void {
   response.writeHead(statusCode, {
     "content-type": contentType,
     "cache-control": "no-store",
@@ -46,7 +55,10 @@ function parseTextProfile(value: string | null): TextProfile {
   return value === "traditional" ? "traditional" : DEFAULT_TEXT_PROFILE;
 }
 
-async function handleApiRequest(requestUrl: URL, response: ServerResponse): Promise<void> {
+async function handleApiRequest(
+  requestUrl: URL,
+  response: ServerResponse,
+): Promise<void> {
   if (requestUrl.pathname === "/api/archives") {
     sendJson(response, 200, { archives: await store.listArchives() });
     return;
@@ -75,7 +87,9 @@ async function handleApiRequest(requestUrl: URL, response: ServerResponse): Prom
 
   if (requestUrl.pathname === "/api/file") {
     const filePath = requestUrl.searchParams.get("path");
-    const textProfile = parseTextProfile(requestUrl.searchParams.get("textProfile"));
+    const textProfile = parseTextProfile(
+      requestUrl.searchParams.get("textProfile"),
+    );
 
     if (!filePath) {
       sendJson(response, 400, { error: "Missing path query parameter." });
@@ -94,8 +108,12 @@ async function handleApiRequest(requestUrl: URL, response: ServerResponse): Prom
   sendJson(response, 404, { error: "Unknown API endpoint." });
 }
 
-async function handleStaticRequest(requestUrl: URL, response: ServerResponse): Promise<void> {
-  const relativePath = requestUrl.pathname === "/" ? "index.html" : requestUrl.pathname.slice(1);
+async function handleStaticRequest(
+  requestUrl: URL,
+  response: ServerResponse,
+): Promise<void> {
+  const relativePath =
+    requestUrl.pathname === "/" ? "index.html" : requestUrl.pathname.slice(1);
   const filePath = path.resolve(publicDir, relativePath);
 
   if (!filePath.startsWith(publicDir)) {
@@ -118,7 +136,8 @@ const server = createServer(async (request, response) => {
 
     await handleStaticRequest(requestUrl, response);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown server error.";
+    const message =
+      error instanceof Error ? error.message : "Unknown server error.";
     sendJson(response, 500, { error: message });
   }
 });

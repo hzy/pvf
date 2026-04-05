@@ -4,9 +4,9 @@ const PVF_PASSWORD = 0x81a79011;
 const HEADER_TAIL_SIZE = 16;
 const ROOT_PATH = "";
 
-const filePathDecoder = new TextDecoder("euc-kr");
-const simplifiedTextDecoder = new TextDecoder("gb18030");
-const traditionalTextDecoder = new TextDecoder("big5");
+const filePathDecoder = /* @__PURE__ */ new TextDecoder("euc-kr");
+const simplifiedTextDecoder = /* @__PURE__ */ new TextDecoder("gb18030");
+const traditionalTextDecoder = /* @__PURE__ */ new TextDecoder("big5");
 
 export type TextProfile = "simplified" | "traditional";
 
@@ -60,7 +60,11 @@ function createDirectoryNode(name: string, path: string): DirectoryNode {
 }
 
 function normalizeArchivePath(input: string): string {
-  return input.replaceAll("\\", "/").trim().replace(/^\/+|\/+$/g, "").toLowerCase();
+  return input
+    .replaceAll("\\", "/")
+    .trim()
+    .replace(/^\/+|\/+$/g, "")
+    .toLowerCase();
 }
 
 function trimTrailingNulls(input: string): string {
@@ -90,7 +94,9 @@ function decodeFilePath(bytes: Buffer): string {
 }
 
 function getTextDecoder(textProfile: TextProfile) {
-  return textProfile === "traditional" ? traditionalTextDecoder : simplifiedTextDecoder;
+  return textProfile === "traditional"
+    ? traditionalTextDecoder
+    : simplifiedTextDecoder;
 }
 
 function decodeStringValue(bytes: Buffer, textProfile: TextProfile): string {
@@ -101,7 +107,11 @@ function splitLines(input: string): string[] {
   return input.split(/\r?\n/);
 }
 
-function extractBetween(line: string, startToken: string, endToken: string): string {
+function extractBetween(
+  line: string,
+  startToken: string,
+  endToken: string,
+): string {
   let startIndex = 0;
 
   if (startToken.length > 0) {
@@ -126,25 +136,41 @@ function extractBetween(line: string, startToken: string, endToken: string): str
 
 function decryptBuffer(buffer: Buffer, length: number, crc32: number): void {
   if (length % 4 !== 0) {
-    throw new Error(`Encrypted block length must be divisible by 4, received ${length}.`);
+    throw new Error(
+      `Encrypted block length must be divisible by 4, received ${length}.`,
+    );
   }
 
   for (let offset = 0; offset < length; offset += 4) {
     const encrypted = buffer.readUInt32LE(offset);
-    const decrypted = rotateRight32((encrypted ^ PVF_PASSWORD ^ crc32) >>> 0, 6);
+    const decrypted = rotateRight32(
+      (encrypted ^ PVF_PASSWORD ^ crc32) >>> 0,
+      6,
+    );
     buffer.writeUInt32LE(decrypted, offset);
   }
 }
 
-async function readExactly(handle: FileHandle, length: number, position: number): Promise<Buffer> {
+async function readExactly(
+  handle: FileHandle,
+  length: number,
+  position: number,
+): Promise<Buffer> {
   const buffer = Buffer.alloc(length);
   let total = 0;
 
   while (total < length) {
-    const { bytesRead } = await handle.read(buffer, total, length - total, position + total);
+    const { bytesRead } = await handle.read(
+      buffer,
+      total,
+      length - total,
+      position + total,
+    );
 
     if (bytesRead === 0) {
-      throw new Error(`Unexpected EOF while reading ${length} bytes at offset ${position}.`);
+      throw new Error(
+        `Unexpected EOF while reading ${length} bytes at offset ${position}.`,
+      );
     }
 
     total += bytesRead;
@@ -220,7 +246,10 @@ export class PvfArchive {
     return [...directories, ...files];
   }
 
-  async readRenderedFile(path: string, textProfile: TextProfile = DEFAULT_TEXT_PROFILE): Promise<string> {
+  async readRenderedFile(
+    path: string,
+    textProfile: TextProfile = DEFAULT_TEXT_PROFILE,
+  ): Promise<string> {
     const record = this.#getFile(path);
     const fileBytes = await this.#readFileBytes(record);
     const textResources = await this.#getTextResources(textProfile);
@@ -235,8 +264,16 @@ export class PvfArchive {
     this.#fileHandle = await open(this.filePath, "r");
     this.#header = await this.#readHeader();
 
-    const headerTreeBytes = await readExactly(this.#fileHandle, this.#header.dirTreeLength, this.#header.headerSize);
-    decryptBuffer(headerTreeBytes, this.#header.dirTreeLength, this.#header.dirTreeChecksum);
+    const headerTreeBytes = await readExactly(
+      this.#fileHandle,
+      this.#header.dirTreeLength,
+      this.#header.headerSize,
+    );
+    decryptBuffer(
+      headerTreeBytes,
+      this.#header.dirTreeLength,
+      this.#header.dirTreeChecksum,
+    );
 
     this.#parseDirectoryTree(headerTreeBytes);
     this.#loaded = true;
@@ -275,10 +312,15 @@ export class PvfArchive {
     for (let index = 0; index < this.#header.numFilesInDirTree; index += 1) {
       const fileNumber = treeBytes.readUInt32LE(offset);
       const filePathLength = treeBytes.readInt32LE(offset + 4);
-      const filePathBytes = treeBytes.subarray(offset + 8, offset + 8 + filePathLength);
+      const filePathBytes = treeBytes.subarray(
+        offset + 8,
+        offset + 8 + filePathLength,
+      );
       const fileLength = treeBytes.readInt32LE(offset + 8 + filePathLength);
       const fileCrc32 = treeBytes.readUInt32LE(offset + 12 + filePathLength);
-      const relativeOffset = treeBytes.readInt32LE(offset + 16 + filePathLength);
+      const relativeOffset = treeBytes.readInt32LE(
+        offset + 16 + filePathLength,
+      );
       const displayPath = decodeFilePath(filePathBytes);
       const filePath = normalizeArchivePath(displayPath);
       const fileName = displayPath.split("/").at(-1) ?? displayPath;
@@ -299,7 +341,9 @@ export class PvfArchive {
   }
 
   #insertFile(record: PvfFileRecord): void {
-    const segments = record.displayPath.split("/").filter((segment) => segment.length > 0);
+    const segments = record.displayPath
+      .split("/")
+      .filter((segment) => segment.length > 0);
     let current = this.#root;
 
     for (const segment of segments.slice(0, -1)) {
@@ -307,7 +351,8 @@ export class PvfArchive {
       let next = current.directories.get(normalizedSegment);
 
       if (!next) {
-        const nextPath = current.path.length === 0 ? segment : `${current.path}/${segment}`;
+        const nextPath =
+          current.path.length === 0 ? segment : `${current.path}/${segment}`;
         next = createDirectoryNode(segment, nextPath);
         current.directories.set(normalizedSegment, next);
       }
@@ -336,7 +381,9 @@ export class PvfArchive {
     return loadedResources;
   }
 
-  async #loadStringTable(textProfile: TextProfile): Promise<Map<number, string>> {
+  async #loadStringTable(
+    textProfile: TextProfile,
+  ): Promise<Map<number, string>> {
     const stringTable = this.#entries.get("stringtable.bin");
 
     if (!stringTable) {
@@ -352,7 +399,10 @@ export class PvfArchive {
       const end = bytes.readInt32LE(index * 4 + 8);
       const length = end - start;
       const valueBytes = bytes.subarray(start + 4, start + 4 + length);
-      resolvedStringTable.set(index, decodeStringValue(valueBytes, textProfile));
+      resolvedStringTable.set(
+        index,
+        decodeStringValue(valueBytes, textProfile),
+      );
     }
 
     return resolvedStringTable;
@@ -419,8 +469,15 @@ export class PvfArchive {
     }
 
     const computedLength = align4(record.fileLength);
-    const fileOffset = this.#header.headerSize + this.#header.dirTreeLength + record.relativeOffset;
-    const encrypted = await readExactly(this.#fileHandle, computedLength, fileOffset);
+    const fileOffset =
+      this.#header.headerSize +
+      this.#header.dirTreeLength +
+      record.relativeOffset;
+    const encrypted = await readExactly(
+      this.#fileHandle,
+      computedLength,
+      fileOffset,
+    );
     decryptBuffer(encrypted, computedLength, record.fileCrc32);
     return encrypted.subarray(0, record.fileLength);
   }
@@ -440,27 +497,37 @@ export class PvfArchive {
 
         if (kind === 10) {
           const beforeValue = bytes.readInt32LE(offset - 4);
-          chunks.push(`${this.#renderSpecial(kind, afterValue, beforeValue, textResources)}\r\n`);
+          chunks.push(
+            `${this.#renderSpecial(kind, afterValue, beforeValue, textResources)}\r\n`,
+          );
           continue;
         }
 
         if (kind === 7) {
-          chunks.push(`\`${this.#renderSpecial(kind, afterValue, 0, textResources)}\`\r\n`);
+          chunks.push(
+            `\`${this.#renderSpecial(kind, afterValue, 0, textResources)}\`\r\n`,
+          );
           continue;
         }
 
         if (kind === 2 || kind === 4) {
-          chunks.push(`${this.#renderSpecial(kind, afterValue, 0, textResources)}\t`);
+          chunks.push(
+            `${this.#renderSpecial(kind, afterValue, 0, textResources)}\t`,
+          );
           continue;
         }
 
         if (kind === 6 || kind === 8) {
-          chunks.push(`{${kind}=\`${this.#renderSpecial(kind, afterValue, 0, textResources)}\`}\r\n`);
+          chunks.push(
+            `{${kind}=\`${this.#renderSpecial(kind, afterValue, 0, textResources)}\`}\r\n`,
+          );
           continue;
         }
 
         if (kind === 5) {
-          chunks.push(`\r\n${this.#renderSpecial(kind, afterValue, 0, textResources)}\r\n`);
+          chunks.push(
+            `\r\n${this.#renderSpecial(kind, afterValue, 0, textResources)}\r\n`,
+          );
         }
       }
 
@@ -470,7 +537,12 @@ export class PvfArchive {
     return chunks.join("");
   }
 
-  #renderSpecial(kind: number, afterValue: number, beforeValue: number, textResources: TextResources): string {
+  #renderSpecial(
+    kind: number,
+    afterValue: number,
+    beforeValue: number,
+    textResources: TextResources,
+  ): string {
     if (kind === 2) {
       return String(afterValue);
     }
