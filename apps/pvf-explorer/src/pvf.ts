@@ -1,5 +1,7 @@
 import { open, type FileHandle } from "node:fs/promises";
 
+import { parseEquDocument, type EquDocument } from "./equ.ts";
+
 const PVF_PASSWORD = 0x81a79011;
 const HEADER_TAIL_SIZE = 16;
 const ROOT_PATH = "";
@@ -225,6 +227,10 @@ export class PvfArchive {
     }
   }
 
+  async [Symbol.asyncDispose](): Promise<void> {
+    await this.close();
+  }
+
   listDirectory(path = ROOT_PATH): DirectoryItem[] {
     const node = this.#getDirectory(path);
     const directories = Array.from(node.directories.values())
@@ -254,6 +260,13 @@ export class PvfArchive {
     const fileBytes = await this.#readFileBytes(record);
     const textResources = await this.#getTextResources(textProfile);
     return this.#renderFile(fileBytes, textResources);
+  }
+
+  async readEquDocument(
+    path: string,
+    textProfile: TextProfile = DEFAULT_TEXT_PROFILE,
+  ): Promise<EquDocument> {
+    return parseEquDocument(await this.readRenderedFile(path, textProfile));
   }
 
   hasFile(path: string): boolean {
