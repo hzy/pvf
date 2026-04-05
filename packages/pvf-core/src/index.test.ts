@@ -4,24 +4,30 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { PvfArchive } from "../../../apps/pvf-explorer/src/pvf.ts";
-import { fixturePath, samplePaths } from "../../../apps/pvf-explorer/src/pvf.fixture.ts";
-import { repackPvf } from "./index.ts";
+import { fixturePath, samplePaths, expectedStrings } from "../../../apps/pvf-explorer/src/pvf.fixture.ts";
+import { PvfArchive, repackPvf } from "./index.ts";
 
 test("repackPvf rewrites Script.pvf with script and text overlays", async () => {
   const workDir = await mkdtemp(path.join(tmpdir(), "pvf-repack-"));
   const outputPath = path.join(workDir, "Script.repacked.pvf");
-  const sourceArchive = new PvfArchive("Script.pvf", fixturePath);
+  const modifiedEqu = [
+    "#PVF_File",
+    "",
+    "[name]",
+    `<3::name_100300002\`${expectedStrings.amuletName}\`>`,
+    "",
+    "[writer smoke]",
+    "`brand new writer string`",
+    "",
+  ].join("\r\n");
+  const modifiedStr = [
+    "// Script\\Equipment",
+    `name_100300002>${expectedStrings.amuletName}`,
+    "writer_smoke_key>writer smoke value",
+    "",
+  ].join("\r\n");
 
   try {
-    await sourceArchive.ensureLoaded();
-
-    const originalEqu = await sourceArchive.readRenderedFile(samplePaths.amulet, "simplified");
-    const modifiedEqu = `${originalEqu.trimEnd()}\r\n\r\n[writer smoke]\r\n\`brand new writer string\`\r\n`;
-
-    const originalStr = await sourceArchive.readRenderedFile("equipment/equipment.kor.str", "simplified");
-    const modifiedStr = originalStr.replace("upperset_name_cap>高级装扮-帽子", "upperset_name_cap>写出验证-帽子");
-
     const result = await repackPvf({
       sourcePath: fixturePath,
       outputPath,
@@ -52,12 +58,12 @@ test("repackPvf rewrites Script.pvf with script and text overlays", async () => 
 
       assert.match(repackedEqu, /\[writer smoke\]/u);
       assert.match(repackedEqu, /`brand new writer string`/u);
-      assert.match(repackedStr, /upperset_name_cap>写出验证-帽子/u);
+      assert.match(repackedEqu, new RegExp(expectedStrings.amuletName, "u"));
+      assert.match(repackedStr, /writer_smoke_key>writer smoke value/u);
     } finally {
       await repackedArchive.close();
     }
   } finally {
-    await sourceArchive.close();
     await rm(workDir, { recursive: true, force: true });
   }
 });
