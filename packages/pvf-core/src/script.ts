@@ -149,6 +149,26 @@ export function compilePvfScriptText(scriptText: string, stringTable: MutableStr
   let pending = "";
 
   for (const line of lines) {
+    if (pending.length > 0) {
+      pending += line;
+      const compiled = compileScriptItem(pending, stringTable);
+
+      if (compiled.kind === "continue") {
+        pending += "\r\n";
+        continue;
+      }
+
+      if (compiled.kind === "link") {
+        output.push(compileType10Token(pending, stringTable));
+        pending = "";
+        continue;
+      }
+
+      writeCompiledToken(output, compiled);
+      pending = "";
+      continue;
+    }
+
     const lowerLine = line.toLowerCase();
 
     if (lowerLine === "#pvf_file" || lowerLine === "#pvf_file_add" || line.length === 0) {

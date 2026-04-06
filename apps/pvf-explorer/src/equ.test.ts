@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  createSection,
+  createStatement,
+  createStringToken,
   parseEquDocument,
   stringifyEquDocument,
   type EquDocument,
@@ -122,6 +125,36 @@ test("round-trips representative .equ files through parse/stringify/parse", asyn
   await archive.close();
 });
 
+test("round-trips multiline direct-text sections", () => {
+  const source = [
+    "#PVF_File",
+    "",
+    "[explain]",
+    "`获得以下套装的套装效果：",
+    "\t套装1",
+    "\t套装2`",
+    "",
+    "[grade]",
+    "72\t",
+    "",
+  ].join("\r\n");
+
+  const document = parseEquDocument(source);
+  const explainSection = findTopLevelSection(document, "explain");
+  const explainToken = getFirstToken(explainSection);
+
+  assert.equal(explainToken.kind, "string");
+
+  if (explainToken.kind !== "string") {
+    throw new Error("Expected string token.");
+  }
+
+  assert.equal(explainToken.value, "获得以下套装的套装效果：\n\t套装1\n\t套装2");
+
+  const reparsed = parseEquDocument(stringifyEquDocument(document));
+  assert.deepEqual(reparsed, document);
+});
+
 test("visitor callbacks can mutate sections and tokens", async () => {
   const archive = new PvfArchive("Script.pvf", fixturePath);
   await archive.ensureLoaded();
@@ -161,4 +194,24 @@ test("visitor callbacks can mutate sections and tokens", async () => {
   assert.equal(levelToken.value, 80);
 
   await archive.close();
+});
+
+test("stringifyEquDocument emits parseable multiline text tokens", () => {
+  const document: EquDocument = {
+    kind: "document",
+    header: "#PVF_File",
+    children: [
+      createSection("explain", [
+        createStatement([
+          createStringToken("获得以下套装的套装效果：\n\t套装1\n\t套装2"),
+        ]),
+      ]),
+      createSection("grade", [
+        createStatement([{ kind: "int", value: 72 }]),
+      ]),
+    ],
+  };
+
+  const reparsed = parseEquDocument(stringifyEquDocument(document));
+  assert.deepEqual(reparsed, document);
 });

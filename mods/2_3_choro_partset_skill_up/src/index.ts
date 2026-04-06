@@ -3,8 +3,10 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
+  parseEquDocument,
   createStatement,
   createSection,
+  createStringToken,
   stringifyEquDocument,
   type EquDocument,
   type EquNode,
@@ -15,8 +17,9 @@ import {
 import {
   DEFAULT_TEXT_PROFILE,
   PvfArchive,
+  type PvfOverlayFile,
   type TextProfile,
-} from "../../../apps/pvf-explorer/src/pvf.ts";
+} from "../../../packages/pvf-core/src/index.ts";
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const REPO_ROOT = resolve(PACKAGE_ROOT, "../..");
@@ -32,12 +35,24 @@ const EQUIPMENT_LIST_PATH = "equipment/equipment.lst";
 const EQUIPMENT_PARTSET_PATH = "etc/equipmentpartset.etc";
 const SUPPORT_NAME_SEPARATOR = " - ";
 const TARGET_PIECE_COUNTS = new Set([3, 6, 9]);
+const EXPLAIN_HEADING = "获得以下套装的套装效果：";
 
 export interface GenerateChoroPartsetSkillUpModOptions {
   archivePath?: string;
   outputDir?: string;
   textProfile?: TextProfile;
   cleanOutput?: boolean;
+}
+
+export interface BuildChoroPartsetSkillUpModOptions {
+  archivePath?: string;
+  textProfile?: TextProfile;
+}
+
+export interface ApplyChoroPartsetSkillUpModOptions {
+  archivePath?: string;
+  outputPath: string;
+  textProfile?: TextProfile;
 }
 
 export interface GeneratedSupportFile {
@@ -58,8 +73,23 @@ export interface GenerateChoroPartsetSkillUpModResult {
   archivePath: string;
   outputDir: string;
   textProfile: TextProfile;
+  overlays: PvfOverlayFile[];
   files: GeneratedSupportFile[];
   skipped: SkippedSupportFile[];
+}
+
+export interface BuildChoroPartsetSkillUpModResult {
+  archivePath: string;
+  textProfile: TextProfile;
+  overlays: PvfOverlayFile[];
+  files: GeneratedSupportFile[];
+  skipped: SkippedSupportFile[];
+}
+
+export interface ApplyChoroPartsetSkillUpModResult extends BuildChoroPartsetSkillUpModResult {
+  outputPath: string;
+  fileCount: number;
+  updatedPaths: string[];
 }
 
 interface SkillEntryBlock {
@@ -78,6 +108,14 @@ function isStatement(node: EquNode): node is EquStatementNode {
 
 function comparePaths(left: string, right: string): number {
   return left.localeCompare(right, "en", { numeric: true });
+}
+
+async function readEquDocument(
+  archive: PvfArchive,
+  path: string,
+  textProfile: TextProfile,
+): Promise<EquDocument> {
+  return parseEquDocument(await archive.readRenderedFile(path, textProfile));
 }
 
 function getSections(nodes: readonly EquNode[], name: string): EquSectionNode[] {
@@ -178,12 +216,57 @@ function extractEquipmentIds(section: EquSectionNode | undefined): number[] {
 }
 
 function extractCategoryNames(document: EquDocument): Map<string, string> {
-  const categoryNames = new Map<string, string>();
   const section = getFirstSection(document.children, "booster category name");
 
   if (!section) {
+    return new Map<string, string>();
+  }
+
+  const headerPairs = getSections(document.children, "booster select category")
+    .map((categorySection) =>
+      getStatementInts(categorySection.children.find(isStatement) ?? {
+        kind: "statement",
+        tokens: [],
+      }),
+    )
+    .filter((pair): pair is [number, number] =>
+      pair[0] !== undefined && pair[1] !== undefined,
+    );
+  const majorCategories = [...new Set(headerPairs.map(([majorCategory]) => majorCategory))]
+    .sort((left, right) => left - right);
+  const minorCount = headerPairs.reduce(
+    (current, [, minorCategory]) => Math.max(current, minorCategory + 1),
+    0,
+  );
+  const categoryValues = section.children
+    .filter(isStatement)
+    .flatMap((statement) =>
+      statement.tokens.flatMap((token) =>
+        token.kind === "string" || token.kind === "link" ? [token.value] : [],
+      ),
+    );
+  const transferIndex = categoryValues.indexOf("请选择转职");
+
+  if (majorCategories.length > 0 && minorCount > 0 && transferIndex >= 0) {
+    const subclassValues = categoryValues.slice(transferIndex + 1);
+    const categoryNames = new Map<string, string>();
+
+    for (const [majorIndex, majorCategory] of majorCategories.entries()) {
+      for (let minorCategory = 0; minorCategory < minorCount; minorCategory += 1) {
+        const name = subclassValues[majorIndex * minorCount + minorCategory];
+
+        if (!name || name === "无") {
+          continue;
+        }
+
+        categoryNames.set(`${majorCategory}:${minorCategory}`, name);
+      }
+    }
+
     return categoryNames;
   }
+
+  const categoryNames = new Map<string, string>();
 
   for (const statement of section.children.filter(isStatement)) {
     for (const token of statement.tokens) {
@@ -283,7 +366,7 @@ async function loadPartsetPathByIndex(
   archive: PvfArchive,
   textProfile: TextProfile,
 ): Promise<Map<number, string>> {
-  const document = await archive.readEquDocument(EQUIPMENT_PARTSET_PATH, textProfile);
+  const document = await readEquDocument(archive, EQUIPMENT_PARTSET_PATH, textProfile);
   const partsetPathByIndex = new Map<number, string>();
 
   for (const section of getSections(document.children, "equipment part set")) {
@@ -306,19 +389,19 @@ async function loadPartsetPathByIndex(
   return partsetPathByIndex;
 }
 
-async function loadSupportPathByClass(
+async function loadSupportPathsByClass(
   archive: PvfArchive,
   equipmentPathById: Map<number, string>,
   textProfile: TextProfile,
-): Promise<Map<string, string>> {
-  const supportPathByClass = new Map<string, string>();
+): Promise<Map<string, string[]>> {
+  const supportPathsByClass = new Map<string, string[]>();
 
   for (const equipmentPath of equipmentPathById.values()) {
     if (!/support_3choro\d+\.equ$/iu.test(equipmentPath)) {
       continue;
     }
 
-    const document = await archive.readEquDocument(equipmentPath, textProfile);
+    const document = await readEquDocument(archive, equipmentPath, textProfile);
     const name = getFirstSectionString(document.children, "name");
 
     if (!name?.includes(SUPPORT_NAME_SEPARATOR)) {
@@ -327,14 +410,14 @@ async function loadSupportPathByClass(
 
     const className = name.split(SUPPORT_NAME_SEPARATOR).at(-1)?.trim();
 
-    if (!className || supportPathByClass.has(className)) {
+    if (!className || supportPathsByClass.has(className)) {
       continue;
     }
 
-    supportPathByClass.set(className, equipmentPath);
+    supportPathsByClass.set(className, [equipmentPath]);
   }
 
-  return supportPathByClass;
+  return supportPathsByClass;
 }
 
 function createDocumentCache(
@@ -350,7 +433,7 @@ function createDocumentCache(
       return existing;
     }
 
-    const created = archive.readEquDocument(path, textProfile);
+    const created = readEquDocument(archive, path, textProfile);
     cache.set(path, created);
     return created;
   };
@@ -365,7 +448,7 @@ async function loadClassPartsets(
   const classEquipmentIds = new Map<string, Set<number>>();
 
   for (const stackablePath of STACKABLE_PATHS) {
-    const document = await archive.readEquDocument(stackablePath, textProfile);
+    const document = await readEquDocument(archive, stackablePath, textProfile);
     mergeClassEquipmentIds(classEquipmentIds, extractClassEquipmentIds(document));
   }
 
@@ -488,7 +571,7 @@ async function loadSkillEntryBlocksByPartset(
   const blocksByPartset = new Map<string, SkillEntryBlock[]>();
 
   for (const partsetPath of partsetPaths) {
-    const document = await archive.readEquDocument(partsetPath, textProfile);
+    const document = await readEquDocument(archive, partsetPath, textProfile);
     const blocks: SkillEntryBlock[] = [];
 
     for (const section of getSections(document.children, "piece set ability")) {
@@ -512,6 +595,28 @@ async function loadSkillEntryBlocksByPartset(
   }
 
   return blocksByPartset;
+}
+
+async function loadPartsetNameByPath(
+  archive: PvfArchive,
+  textProfile: TextProfile,
+  partsetPaths: Iterable<string>,
+): Promise<Map<string, string>> {
+  const namesByPath = new Map<string, string>();
+
+  for (const partsetPath of partsetPaths) {
+    const document = await readEquDocument(archive, partsetPath, textProfile);
+    const name = (
+      getFirstSectionString(document.children, "set name")
+      ?? getFirstSectionString(document.children, "name")
+    )?.trim();
+
+    if (name) {
+      namesByPath.set(partsetPath, name);
+    }
+  }
+
+  return namesByPath;
 }
 
 function dedupeSkillEntryBlocks(blocks: readonly SkillEntryBlock[]): SkillEntryBlock[] {
@@ -562,121 +667,187 @@ function replaceTopLevelSkillDataUp(
   };
 }
 
+function buildExplainText(sourcePartsets: readonly string[], partsetNameByPath: Map<string, string>): string {
+  const seen = new Set<string>();
+  const lines = [EXPLAIN_HEADING];
+
+  for (const partsetPath of sourcePartsets) {
+    const partsetName = partsetNameByPath.get(partsetPath)?.trim();
+
+    if (!partsetName || seen.has(partsetName)) {
+      continue;
+    }
+
+    seen.add(partsetName);
+    lines.push(`\t${partsetName}`);
+  }
+
+  return lines.join("\n");
+}
+
+function replaceTopLevelExplain(
+  document: EquDocument,
+  explainText: string,
+): EquDocument {
+  const nextChildren = document.children.filter(
+    (node) => !isSection(node) || node.name !== "explain",
+  );
+  const explainSection = createSection("explain", [
+    createStatement([createStringToken(explainText)]),
+  ]);
+  const insertIndex = nextChildren.findIndex(
+    (node) => isSection(node) && node.name === "grade",
+  );
+  const safeInsertIndex = insertIndex === -1 ? nextChildren.length : insertIndex;
+
+  nextChildren.splice(safeInsertIndex, 0, explainSection);
+
+  return {
+    ...document,
+    children: nextChildren,
+  };
+}
+
 function sortBySupportPath<T extends { supportPath: string }>(
   files: readonly T[],
 ): T[] {
   return [...files].sort((left, right) => comparePaths(left.supportPath, right.supportPath));
 }
 
-async function writeGeneratedSupportFile(
+function sortOverlays(overlays: readonly PvfOverlayFile[]): PvfOverlayFile[] {
+  return [...overlays].sort((left, right) => comparePaths(left.path, right.path));
+}
+
+export interface GeneratedChoroPartsetSkillUpManifest {
+  archivePath: string;
+  outputDir: string;
+  textProfile: TextProfile;
+  overlayPaths: string[];
+  files: GeneratedSupportFile[];
+  skipped: SkippedSupportFile[];
+}
+
+async function writeOverlayDirectory(
   outputDir: string,
-  supportPath: string,
-  document: EquDocument,
-): Promise<string> {
-  const outputPath = resolve(outputDir, supportPath);
-  await mkdir(dirname(outputPath), { recursive: true });
-  await writeFile(outputPath, stringifyEquDocument(document), "utf8");
-  return outputPath;
+  overlays: readonly PvfOverlayFile[],
+): Promise<void> {
+  for (const overlay of overlays) {
+    if (overlay.delete || typeof overlay.content !== "string") {
+      throw new Error(`Overlay export only supports text/script files: ${overlay.path}`);
+    }
+
+    const outputPath = resolve(outputDir, overlay.path);
+    await mkdir(dirname(outputPath), { recursive: true });
+    await writeFile(outputPath, overlay.content, "utf8");
+  }
 }
 
 async function writeManifest(
   outputDir: string,
   result: GenerateChoroPartsetSkillUpModResult,
 ): Promise<void> {
+  const manifest: GeneratedChoroPartsetSkillUpManifest = {
+    archivePath: result.archivePath,
+    outputDir: result.outputDir,
+    textProfile: result.textProfile,
+    overlayPaths: result.overlays.map((overlay) => overlay.path),
+    files: result.files,
+    skipped: result.skipped,
+  };
+
   await writeFile(
     resolve(outputDir, "manifest.json"),
-    JSON.stringify(
-      {
-        archivePath: result.archivePath,
-        outputDir: result.outputDir,
-        textProfile: result.textProfile,
-        files: result.files,
-      },
-      null,
-      2,
-    ),
+    JSON.stringify(manifest, null, 2),
     "utf8",
   );
 }
 
-export async function generateChoroPartsetSkillUpMod(
-  options: GenerateChoroPartsetSkillUpModOptions = {},
-): Promise<GenerateChoroPartsetSkillUpModResult> {
-  const archivePath = resolve(options.archivePath ?? DEFAULT_ARCHIVE_PATH);
-  const outputDir = resolve(options.outputDir ?? DEFAULT_OUTPUT_DIR);
-  const textProfile = options.textProfile ?? DEFAULT_TEXT_PROFILE;
-  const cleanOutput = options.cleanOutput ?? true;
+async function buildChoroPartsetSkillUpModFromArchive(
+  archive: PvfArchive,
+  archivePath: string,
+  textProfile: TextProfile,
+): Promise<BuildChoroPartsetSkillUpModResult> {
+  const equipmentPathById = await loadEquipmentPathById(archive, textProfile);
+  const partsetPathByIndex = await loadPartsetPathByIndex(archive, textProfile);
+  const classPartsets = await loadClassPartsets(
+    archive,
+    textProfile,
+    equipmentPathById,
+    partsetPathByIndex,
+  );
+  const supportPathsByClass = await loadSupportPathsByClass(
+    archive,
+    equipmentPathById,
+    textProfile,
+  );
 
-  if (cleanOutput) {
-    await rm(outputDir, { recursive: true, force: true });
-  }
+  const allPartsets = [
+    ...new Set(Array.from(classPartsets.values()).flat()),
+  ].sort(comparePaths);
+  const blocksByPartset = await loadSkillEntryBlocksByPartset(
+    archive,
+    textProfile,
+    allPartsets,
+  );
+  const partsetNameByPath = await loadPartsetNameByPath(
+    archive,
+    textProfile,
+    allPartsets,
+  );
+  const files: GeneratedSupportFile[] = [];
+  const overlays: PvfOverlayFile[] = [];
+  const skipped: SkippedSupportFile[] = [];
 
-  await mkdir(outputDir, { recursive: true });
+  for (const [className, supportPaths] of [...supportPathsByClass].sort((left, right) =>
+    comparePaths(left[1]?.[0] ?? "", right[1]?.[0] ?? ""),
+  )) {
+    const sourcePartsets = classPartsets.get(className) ?? [];
 
-  const archive = new PvfArchive("mods/2_3_choro_partset_skill_up", archivePath);
-
-  try {
-    await archive.ensureLoaded();
-
-    const equipmentPathById = await loadEquipmentPathById(archive, textProfile);
-    const partsetPathByIndex = await loadPartsetPathByIndex(archive, textProfile);
-    const supportPathByClass = await loadSupportPathByClass(
-      archive,
-      equipmentPathById,
-      textProfile,
-    );
-    const classPartsets = await loadClassPartsets(
-      archive,
-      textProfile,
-      equipmentPathById,
-      partsetPathByIndex,
-    );
-
-    const allPartsets = [
-      ...new Set(Array.from(classPartsets.values()).flat()),
-    ].sort(comparePaths);
-    const blocksByPartset = await loadSkillEntryBlocksByPartset(
-      archive,
-      textProfile,
-      allPartsets,
-    );
-    const files: GeneratedSupportFile[] = [];
-    const skipped: SkippedSupportFile[] = [];
-
-    for (const [className, supportPath] of [...supportPathByClass].sort((left, right) =>
-      comparePaths(left[1], right[1]),
-    )) {
-      const sourcePartsets = classPartsets.get(className) ?? [];
-
-      if (sourcePartsets.length === 0) {
+    if (sourcePartsets.length === 0) {
+      for (const supportPath of supportPaths) {
         skipped.push({
           className,
           supportPath,
           reason: "No source partsets were listed in event_8382/event_8383.",
         });
-        continue;
       }
+      continue;
+    }
 
-      const mergedBlocks = dedupeSkillEntryBlocks(
-        sourcePartsets.flatMap((partsetPath) => blocksByPartset.get(partsetPath) ?? []),
-      );
+    const mergedBlocks = dedupeSkillEntryBlocks(
+      sourcePartsets.flatMap((partsetPath) => blocksByPartset.get(partsetPath) ?? []),
+    );
 
-      if (mergedBlocks.length === 0) {
+    if (mergedBlocks.length === 0) {
+      for (const supportPath of supportPaths) {
         skipped.push({
           className,
           supportPath,
           reason: "Source partsets did not contain any 3/6/9 skill data up blocks.",
         });
-        continue;
       }
+      continue;
+    }
 
-      const supportDocument = await archive.readEquDocument(supportPath, textProfile);
-      const nextDocument = replaceTopLevelSkillDataUp(
+    const explainText = buildExplainText(sourcePartsets, partsetNameByPath);
+    const skillDataUpSection = mergeSkillDataUpBlocks(mergedBlocks);
+
+    for (const supportPath of supportPaths) {
+      const supportDocument = await readEquDocument(archive, supportPath, textProfile);
+      const explainedDocument = replaceTopLevelExplain(
         supportDocument,
-        mergeSkillDataUpBlocks(mergedBlocks),
+        explainText,
+      );
+      const nextDocument = replaceTopLevelSkillDataUp(
+        explainedDocument,
+        skillDataUpSection,
       );
 
-      await writeGeneratedSupportFile(outputDir, supportPath, nextDocument);
+      overlays.push({
+        path: supportPath,
+        content: stringifyEquDocument(nextDocument),
+        mode: "script",
+      });
       files.push({
         className,
         supportPath,
@@ -685,17 +856,87 @@ export async function generateChoroPartsetSkillUpMod(
         skillEntryCount: mergedBlocks.length,
       });
     }
+  }
 
-    const result: GenerateChoroPartsetSkillUpModResult = {
+  return {
+    archivePath,
+    textProfile,
+    overlays: sortOverlays(overlays),
+    files: sortBySupportPath(files),
+    skipped: sortBySupportPath(skipped),
+  };
+}
+
+export async function buildChoroPartsetSkillUpMod(
+  options: BuildChoroPartsetSkillUpModOptions = {},
+): Promise<BuildChoroPartsetSkillUpModResult> {
+  const archivePath = resolve(options.archivePath ?? DEFAULT_ARCHIVE_PATH);
+  const textProfile = options.textProfile ?? DEFAULT_TEXT_PROFILE;
+  const archive = new PvfArchive("mods/2_3_choro_partset_skill_up", archivePath);
+
+  try {
+    await archive.ensureLoaded();
+    return await buildChoroPartsetSkillUpModFromArchive(
+      archive,
       archivePath,
-      outputDir,
       textProfile,
-      files: sortBySupportPath(files),
-      skipped: sortBySupportPath(skipped),
-    };
+    );
+  } finally {
+    await archive.close();
+  }
+}
 
-    await writeManifest(outputDir, result);
-    return result;
+export async function generateChoroPartsetSkillUpMod(
+  options: GenerateChoroPartsetSkillUpModOptions = {},
+): Promise<GenerateChoroPartsetSkillUpModResult> {
+  const outputDir = resolve(options.outputDir ?? DEFAULT_OUTPUT_DIR);
+  const cleanOutput = options.cleanOutput ?? true;
+
+  if (cleanOutput) {
+    await rm(outputDir, { recursive: true, force: true });
+  }
+
+  await mkdir(outputDir, { recursive: true });
+
+  const built = await buildChoroPartsetSkillUpMod(options);
+  await writeOverlayDirectory(outputDir, built.overlays);
+
+  const result: GenerateChoroPartsetSkillUpModResult = {
+    ...built,
+    outputDir,
+  };
+
+  await writeManifest(outputDir, result);
+  return result;
+}
+
+export async function applyChoroPartsetSkillUpMod(
+  options: ApplyChoroPartsetSkillUpModOptions,
+): Promise<ApplyChoroPartsetSkillUpModResult> {
+  const archivePath = resolve(options.archivePath ?? DEFAULT_ARCHIVE_PATH);
+  const outputPath = resolve(options.outputPath);
+  const textProfile = options.textProfile ?? DEFAULT_TEXT_PROFILE;
+  const archive = new PvfArchive("mods/2_3_choro_partset_skill_up", archivePath);
+
+  try {
+    await archive.ensureLoaded();
+    const built = await buildChoroPartsetSkillUpModFromArchive(
+      archive,
+      archivePath,
+      textProfile,
+    );
+    const writeResult = await archive.write({
+      outputPath,
+      textProfile,
+      overlays: built.overlays,
+    });
+
+    return {
+      ...built,
+      outputPath,
+      fileCount: writeResult.fileCount,
+      updatedPaths: writeResult.updatedPaths,
+    };
   } finally {
     await archive.close();
   }
@@ -703,9 +944,9 @@ export async function generateChoroPartsetSkillUpMod(
 
 export async function readGeneratedManifest(
   outputDir = DEFAULT_OUTPUT_DIR,
-): Promise<GenerateChoroPartsetSkillUpModResult> {
+): Promise<GeneratedChoroPartsetSkillUpManifest> {
   const content = await readFile(resolve(outputDir, "manifest.json"), "utf8");
-  return JSON.parse(content) as GenerateChoroPartsetSkillUpModResult;
+  return JSON.parse(content) as GeneratedChoroPartsetSkillUpManifest;
 }
 
 export {

@@ -306,6 +306,29 @@ function parseStatementLine(line: string): EquStatementNode {
   return createStatement(tokens);
 }
 
+function isUnterminatedTokenError(error: unknown): boolean {
+  return error instanceof Error && /^Unterminated /u.test(error.message);
+}
+
+function parseStatementWithContinuation(state: ParseState): EquStatementNode {
+  let combined = state.lines[state.index] ?? "";
+  let endIndex = state.index;
+
+  while (true) {
+    try {
+      state.index = endIndex + 1;
+      return parseStatementLine(combined);
+    } catch (error) {
+      if (!isUnterminatedTokenError(error) || endIndex + 1 >= state.lines.length) {
+        throw error;
+      }
+
+      endIndex += 1;
+      combined += `\n${state.lines[endIndex] ?? ""}`;
+    }
+  }
+}
+
 function parseNodes(
   state: ParseState,
   expectedClosingName: string | null,
@@ -361,16 +384,14 @@ function parseNodes(
           break;
         }
 
-        children.push(parseStatementLine(nextRawLine));
-        state.index += 1;
+        children.push(parseStatementWithContinuation(state));
       }
 
       nodes.push(createSection(marker.name, children, false));
       continue;
     }
 
-    nodes.push(parseStatementLine(rawLine));
-    state.index += 1;
+    nodes.push(parseStatementWithContinuation(state));
   }
 
   if (expectedClosingName !== null) {
