@@ -57,6 +57,16 @@ interface NormalizedOverlay extends PvfOverlayFile {
 }
 
 function comparePreparedEntries(left: PreparedEntry, right: PreparedEntry): number {
+  if (left.fileNameHash !== right.fileNameHash) {
+    return left.fileNameHash - right.fileNameHash;
+  }
+
+  const nameBytesComparison = Buffer.compare(left.fileNameBytes, right.fileNameBytes);
+
+  if (nameBytesComparison !== 0) {
+    return nameBytesComparison;
+  }
+
   if (left.sourceEntry && right.sourceEntry) {
     return left.sourceEntry.treeIndex - right.sourceEntry.treeIndex;
   }

@@ -57,7 +57,7 @@ if (pvfOutputPath) {
   });
 
   console.log(
-    `Applied ${result.files.length} overlays to ${result.outputPath}.`,
+    `Applied ${result.overlays.length} overlays (${result.files.length} support files) to ${result.outputPath}.`,
   );
 } else {
   const result = await generateChoroPartsetSkillUpMod({
@@ -67,6 +67,6 @@ if (pvfOutputPath) {
   });
 
   console.log(
-    `Generated ${result.files.length} support overlays in ${result.outputDir}.`,
+    `Generated ${result.overlays.length} overlays (${result.files.length} support files) in ${result.outputDir}.`,
   );
 }

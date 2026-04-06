@@ -6,6 +6,7 @@ import {
   parseEquDocument,
   createStatement,
   createSection,
+  createIntToken,
   createStringToken,
   stringifyEquDocument,
   type EquDocument,
@@ -33,9 +34,12 @@ const STACKABLE_PATHS = [
 
 const EQUIPMENT_LIST_PATH = "equipment/equipment.lst";
 const EQUIPMENT_PARTSET_PATH = "etc/equipmentpartset.etc";
+const SUPPORT_TEMPLATE_PATH = "equipment/character/common/support/support_440003.equ";
 const SUPPORT_NAME_SEPARATOR = " - ";
 const TARGET_PIECE_COUNTS = new Set([3, 6, 9]);
 const EXPLAIN_HEADING = "获得以下套装的套装效果：";
+const GENERATED_SUPPORT_NAME_PREFIX = "诸界融核臂章";
+const GENERATED_SUPPORT_ID_START = 440453;
 
 export interface GenerateChoroPartsetSkillUpModOptions {
   archivePath?: string;
@@ -58,6 +62,7 @@ export interface ApplyChoroPartsetSkillUpModOptions {
 export interface GeneratedSupportFile {
   className: string;
   supportPath: string;
+  equipmentId: number;
   outputPath: string;
   sourcePartsets: string[];
   skillEntryCount: number;
@@ -90,6 +95,8 @@ export interface ApplyChoroPartsetSkillUpModResult extends BuildChoroPartsetSkil
   outputPath: string;
   fileCount: number;
   updatedPaths: string[];
+  addedPaths: string[];
+  deletedPaths: string[];
 }
 
 interface SkillEntryBlock {
@@ -708,6 +715,122 @@ function replaceTopLevelExplain(
   };
 }
 
+function replaceTopLevelSection(
+  document: EquDocument,
+  section: EquSectionNode,
+  insertBeforeNames: readonly string[] = [],
+): EquDocument {
+  const originalIndex = document.children.findIndex(
+    (node) => isSection(node) && node.name === section.name,
+  );
+  const nextChildren = document.children.filter(
+    (node) => !isSection(node) || node.name !== section.name,
+  );
+
+  if (originalIndex >= 0) {
+    nextChildren.splice(Math.min(originalIndex, nextChildren.length), 0, section);
+    return {
+      ...document,
+      children: nextChildren,
+    };
+  }
+
+  const insertIndex = nextChildren.findIndex(
+    (node) => isSection(node) && insertBeforeNames.includes(node.name),
+  );
+  const safeInsertIndex = insertIndex === -1 ? nextChildren.length : insertIndex;
+  nextChildren.splice(safeInsertIndex, 0, section);
+
+  return {
+    ...document,
+    children: nextChildren,
+  };
+}
+
+function createSingleStringSection(name: string, value: string): EquSectionNode {
+  return createSection(name, [createStatement([createStringToken(value)])]);
+}
+
+function buildGeneratedSupportName(className: string): string {
+  return `${GENERATED_SUPPORT_NAME_PREFIX}${SUPPORT_NAME_SEPARATOR}${className}`;
+}
+
+function buildGeneratedSupportPath(equipmentId: number): string {
+  return `equipment/character/common/support/support_${equipmentId}.equ`;
+}
+
+function toEquipmentListRelativePath(archivePath: string): string {
+  if (!archivePath.startsWith("equipment/")) {
+    throw new Error(`Expected equipment path, received ${archivePath}.`);
+  }
+
+  return archivePath.slice("equipment/".length);
+}
+
+function createEquipmentListStatement(
+  equipmentId: number,
+  archivePath: string,
+): EquStatementNode {
+  return createStatement([
+    createIntToken(equipmentId),
+    createStringToken(toEquipmentListRelativePath(archivePath)),
+  ]);
+}
+
+function updateEquipmentListDocument(
+  document: EquDocument,
+  files: readonly GeneratedSupportFile[],
+): EquDocument {
+  const overridesById = new Map(
+    files.map((file) => [
+      file.equipmentId,
+      toEquipmentListRelativePath(file.outputPath),
+    ]),
+  );
+  const overridePaths = new Set(overridesById.values());
+  const entries = document.children
+    .filter(isStatement)
+    .map((statement) => {
+      const equipmentId = statement.tokens.find((token) => token.kind === "int")?.value;
+      const relativePath = statement.tokens.find((token) => token.kind === "string")?.value;
+
+      return equipmentId !== undefined && relativePath !== undefined
+        ? { equipmentId, relativePath }
+        : undefined;
+    })
+    .filter(
+      (
+        entry,
+      ): entry is {
+        equipmentId: number;
+        relativePath: string;
+      } => entry !== undefined,
+    )
+    .filter(
+      (entry) =>
+        !overridesById.has(entry.equipmentId) && !overridePaths.has(entry.relativePath),
+    );
+
+  for (const file of files) {
+    entries.push({
+      equipmentId: file.equipmentId,
+      relativePath: toEquipmentListRelativePath(file.outputPath),
+    });
+  }
+
+  entries.sort((left, right) => left.equipmentId - right.equipmentId);
+
+  return {
+    ...document,
+    children: entries.map((entry) =>
+      createEquipmentListStatement(
+        entry.equipmentId,
+        `equipment/${entry.relativePath}`,
+      ),
+    ),
+  };
+}
+
 function sortBySupportPath<T extends { supportPath: string }>(
   files: readonly T[],
 ): T[] {
@@ -794,9 +917,18 @@ async function buildChoroPartsetSkillUpModFromArchive(
     textProfile,
     allPartsets,
   );
+  const templateDocument = await readEquDocument(
+    archive,
+    SUPPORT_TEMPLATE_PATH,
+    textProfile,
+  );
+  const equipmentListDocument = parseEquDocument(
+    await archive.readRenderedFile(EQUIPMENT_LIST_PATH, textProfile),
+  );
   const files: GeneratedSupportFile[] = [];
   const overlays: PvfOverlayFile[] = [];
   const skipped: SkippedSupportFile[] = [];
+  let nextEquipmentId = GENERATED_SUPPORT_ID_START;
 
   for (const [className, supportPaths] of [...supportPathsByClass].sort((left, right) =>
     comparePaths(left[1]?.[0] ?? "", right[1]?.[0] ?? ""),
@@ -833,29 +965,69 @@ async function buildChoroPartsetSkillUpModFromArchive(
     const skillDataUpSection = mergeSkillDataUpBlocks(mergedBlocks);
 
     for (const supportPath of supportPaths) {
-      const supportDocument = await readEquDocument(archive, supportPath, textProfile);
-      const explainedDocument = replaceTopLevelExplain(
-        supportDocument,
-        explainText,
+      const sourceSupportDocument = await readEquDocument(
+        archive,
+        supportPath,
+        textProfile,
       );
-      const nextDocument = replaceTopLevelSkillDataUp(
-        explainedDocument,
-        skillDataUpSection,
+      const usableJobSection = getFirstSection(
+        sourceSupportDocument.children,
+        "usable job",
+      );
+      const characterItemCheckSection = getFirstSection(
+        sourceSupportDocument.children,
+        "character item check",
+      );
+      const equipmentId = nextEquipmentId;
+      const outputPath = buildGeneratedSupportPath(equipmentId);
+      let nextDocument = replaceTopLevelSection(
+        templateDocument,
+        createSingleStringSection("name", buildGeneratedSupportName(className)),
       );
 
+      nextDocument = replaceTopLevelSection(
+        nextDocument,
+        createSingleStringSection("name2", ""),
+      );
+
+      if (usableJobSection) {
+        nextDocument = replaceTopLevelSection(nextDocument, usableJobSection);
+      }
+
+      if (characterItemCheckSection) {
+        nextDocument = replaceTopLevelSection(
+          nextDocument,
+          characterItemCheckSection,
+          ["possible kiri protect", "icon mark"],
+        );
+      }
+
+      nextDocument = replaceTopLevelExplain(nextDocument, explainText);
+      nextDocument = replaceTopLevelSkillDataUp(nextDocument, skillDataUpSection);
+
       overlays.push({
-        path: supportPath,
+        path: outputPath,
         content: stringifyEquDocument(nextDocument),
         mode: "script",
       });
       files.push({
         className,
         supportPath,
-        outputPath: supportPath,
+        equipmentId,
+        outputPath,
         sourcePartsets,
         skillEntryCount: mergedBlocks.length,
       });
+      nextEquipmentId += 1;
     }
+  }
+
+  if (files.length > 0) {
+    overlays.push({
+      path: EQUIPMENT_LIST_PATH,
+      content: stringifyEquDocument(updateEquipmentListDocument(equipmentListDocument, files)),
+      mode: "script",
+    });
   }
 
   return {
@@ -936,6 +1108,8 @@ export async function applyChoroPartsetSkillUpMod(
       outputPath,
       fileCount: writeResult.fileCount,
       updatedPaths: writeResult.updatedPaths,
+      addedPaths: writeResult.addedPaths,
+      deletedPaths: writeResult.deletedPaths,
     };
   } finally {
     await archive.close();

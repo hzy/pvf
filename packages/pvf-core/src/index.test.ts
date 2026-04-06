@@ -61,3 +61,52 @@ test("PvfArchive.write rewrites Script.pvf with script and text overlays", async
     await source.close();
   }
 });
+
+test("PvfArchive.write keeps the file tree sorted by file name hash when adding files", async () => {
+  const source = new PvfArchive("Script.pvf", fixturePath);
+  await source.ensureLoaded();
+
+  const result = await source.write({
+    textProfile: "simplified",
+    overlays: [
+      {
+        path: "equipment/character/common/support/support_440453.equ",
+        content: [
+          "#PVF_File",
+          "",
+          "[name]",
+          "`writer order test`",
+          "",
+        ].join("\r\n"),
+        mode: "script",
+      },
+    ],
+  });
+
+  const repackedArchive = PvfArchive.fromBytes("Script.repacked.order-test.pvf", result.bytes);
+
+  try {
+    await repackedArchive.ensureLoaded();
+
+    const entries = repackedArchive.entriesInOrder;
+    let previousHash = -1;
+
+    for (const entry of entries) {
+      assert.ok(
+        previousHash <= entry.fileNameHash,
+        `File tree hash order regressed at ${entry.filePath}: ${previousHash} > ${entry.fileNameHash}`,
+      );
+      previousHash = entry.fileNameHash;
+    }
+
+    const addedEntry = repackedArchive.getFileRecord(
+      "equipment/character/common/support/support_440453.equ",
+    );
+
+    assert.ok(addedEntry);
+    assert.notEqual(addedEntry.treeIndex, entries.length - 1);
+  } finally {
+    await repackedArchive.close();
+    await source.close();
+  }
+});
