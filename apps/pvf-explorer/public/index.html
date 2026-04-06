@@ -22,7 +22,7 @@
             </select>
           </label>
         </div>
-        <div id="archive-status" class="toolbar__meta">读取 fixtures 中的 PVF...</div>
+        <div id="archive-status" class="toolbar__meta">正在读取 fixtures 中的 PVF...</div>
       </header>
 
       <main class="layout">
@@ -33,10 +33,25 @@
 
         <section class="content">
           <div class="content__header">
-            <div class="panel-title">预览</div>
-            <div id="file-path" class="content__path">选择左侧文件查看内容</div>
+            <div>
+              <div class="panel-title">脚本</div>
+              <div id="file-path" class="content__path">选择左侧文件查看内容</div>
+            </div>
+            <div class="content__actions">
+              <div id="editor-mode" class="content__mode">只读预览</div>
+              <button id="reset-button" type="button" class="action-button" disabled>还原</button>
+              <button id="save-button" type="button" class="action-button action-button--primary" disabled>保存</button>
+            </div>
           </div>
           <pre id="file-content" class="content__body"># PVF Explorer</pre>
+          <textarea
+            id="file-editor"
+            class="content__editor is-hidden"
+            spellcheck="false"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="off"
+          ></textarea>
         </section>
       </main>
     </div>

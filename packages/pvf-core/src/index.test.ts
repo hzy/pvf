@@ -1,15 +1,10 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import test from "node:test";
 
 import { fixturePath, samplePaths, expectedStrings } from "../../../apps/pvf-explorer/src/pvf.fixture.ts";
-import { PvfArchive, repackPvf } from "./index.ts";
+import { PvfArchive } from "./index.ts";
 
-test("repackPvf rewrites Script.pvf with script and text overlays", async () => {
-  const workDir = await mkdtemp(path.join(tmpdir(), "pvf-repack-"));
-  const outputPath = path.join(workDir, "Script.repacked.pvf");
+test("PvfArchive.write rewrites Script.pvf with script and text overlays", async () => {
   const modifiedEqu = [
     "#PVF_File",
     "",
@@ -26,44 +21,43 @@ test("repackPvf rewrites Script.pvf with script and text overlays", async () => 
     "writer_smoke_key>writer smoke value",
     "",
   ].join("\r\n");
+  const source = new PvfArchive("Script.pvf", fixturePath);
+  await source.ensureLoaded();
+
+  const result = await source.write({
+    textProfile: "simplified",
+    overlays: [
+      {
+        path: samplePaths.amulet,
+        content: modifiedEqu,
+      },
+      {
+        path: "equipment/equipment.kor.str",
+        content: modifiedStr,
+      },
+    ],
+  });
+
+  assert.equal(result.outputPath, null);
+  assert.equal(result.strategy, "repack");
+  assert.ok(result.updatedPaths.includes(samplePaths.amulet));
+  assert.ok(result.updatedPaths.includes("equipment/equipment.kor.str"));
+  assert.ok(result.updatedPaths.includes("stringtable.bin"));
+
+  const repackedArchive = PvfArchive.fromBytes("Script.repacked.pvf", result.bytes);
 
   try {
-    const result = await repackPvf({
-      sourcePath: fixturePath,
-      outputPath,
-      textProfile: "simplified",
-      overlays: [
-        {
-          path: samplePaths.amulet,
-          content: modifiedEqu,
-        },
-        {
-          path: "equipment/equipment.kor.str",
-          content: modifiedStr,
-        },
-      ],
-    });
+    await repackedArchive.ensureLoaded();
 
-    assert.ok(result.updatedPaths.includes(samplePaths.amulet));
-    assert.ok(result.updatedPaths.includes("equipment/equipment.kor.str"));
-    assert.ok(result.updatedPaths.includes("stringtable.bin"));
+    const repackedEqu = await repackedArchive.readRenderedFile(samplePaths.amulet, "simplified");
+    const repackedStr = await repackedArchive.readRenderedFile("equipment/equipment.kor.str", "simplified");
 
-    const repackedArchive = new PvfArchive("Script.repacked.pvf", outputPath);
-
-    try {
-      await repackedArchive.ensureLoaded();
-
-      const repackedEqu = await repackedArchive.readRenderedFile(samplePaths.amulet, "simplified");
-      const repackedStr = await repackedArchive.readRenderedFile("equipment/equipment.kor.str", "simplified");
-
-      assert.match(repackedEqu, /\[writer smoke\]/u);
-      assert.match(repackedEqu, /`brand new writer string`/u);
-      assert.match(repackedEqu, new RegExp(expectedStrings.amuletName, "u"));
-      assert.match(repackedStr, /writer_smoke_key>writer smoke value/u);
-    } finally {
-      await repackedArchive.close();
-    }
+    assert.match(repackedEqu, /\[writer smoke\]/u);
+    assert.match(repackedEqu, /`brand new writer string`/u);
+    assert.match(repackedEqu, new RegExp(expectedStrings.amuletName, "u"));
+    assert.match(repackedStr, /writer_smoke_key>writer smoke value/u);
   } finally {
-    await rm(workDir, { recursive: true, force: true });
+    await repackedArchive.close();
+    await source.close();
   }
 });

@@ -1,4 +1,4 @@
-import { createServer, type ServerResponse } from "node:http";
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -55,7 +55,28 @@ function parseTextProfile(value: string | null): TextProfile {
   return value === "traditional" ? "traditional" : DEFAULT_TEXT_PROFILE;
 }
 
+function getErrorStatus(error: unknown): number {
+  if (!(error instanceof Error)) {
+    return 500;
+  }
+
+  if (/missing|expected/i.test(error.message)) {
+    return 400;
+  }
+
+  if (/version mismatch|stale/i.test(error.message)) {
+    return 409;
+  }
+
+  if (/not found/i.test(error.message)) {
+    return 404;
+  }
+
+  return 500;
+}
+
 async function handleApiRequest(
+  request: IncomingMessage,
   requestUrl: URL,
   response: ServerResponse,
 ): Promise<void> {
@@ -71,10 +92,9 @@ async function handleApiRequest(
     return;
   }
 
-  const archive = await store.getArchive(archiveId);
-  await archive.ensureLoaded();
-
   if (requestUrl.pathname === "/api/tree") {
+    const archive = await store.getArchive(archiveId);
+    await archive.ensureLoaded();
     const treePath = requestUrl.searchParams.get("path") ?? "";
     sendJson(response, 200, {
       archive: archiveId,
@@ -85,27 +105,98 @@ async function handleApiRequest(
     return;
   }
 
-  if (requestUrl.pathname === "/api/file") {
-    const filePath = requestUrl.searchParams.get("path");
-    const textProfile = parseTextProfile(
-      requestUrl.searchParams.get("textProfile"),
-    );
+  if (requestUrl.pathname === "/api/file/open") {
+    if (request.method === "POST") {
+      const payload = await readJsonBody(request);
+      const filePath = typeof payload["path"] === "string" ? payload["path"] : "";
+      const textProfile = parseTextProfile(typeof payload["textProfile"] === "string" ? payload["textProfile"] : null);
 
-    if (!filePath) {
-      sendJson(response, 400, { error: "Missing path query parameter." });
+      if (!filePath) {
+        sendJson(response, 400, { error: "Missing path in request body." });
+        return;
+      }
+
+      sendJson(response, 200, await store.openArchiveFile(archiveId, filePath, textProfile));
       return;
     }
 
-    sendJson(response, 200, {
-      archive: archiveId,
-      path: filePath,
-      textProfile,
-      content: await archive.readRenderedFile(filePath, textProfile),
-    });
+    sendJson(response, 405, { error: "Unsupported method for /api/file/open." });
+    return;
+  }
+
+  if (requestUrl.pathname === "/api/file/save") {
+    if (request.method === "POST") {
+      const payload = await readJsonBody(request);
+      const sessionId = typeof payload["sessionId"] === "string" ? payload["sessionId"] : "";
+      const version = typeof payload["version"] === "number" ? payload["version"] : Number.NaN;
+      const content = typeof payload["content"] === "string" ? payload["content"] : "";
+
+      if (sessionId.length === 0 || !Number.isInteger(version)) {
+        sendJson(response, 400, { error: "Missing sessionId or version in request body." });
+        return;
+      }
+
+      sendJson(
+        response,
+        200,
+        await store.saveArchiveSession(sessionId, content, version),
+      );
+      return;
+    }
+
+    sendJson(response, 405, { error: "Unsupported method for /api/file/save." });
+    return;
+  }
+
+  if (requestUrl.pathname === "/api/file/close") {
+    if (request.method === "POST") {
+      const payload = await readJsonBody(request);
+      const sessionId = typeof payload["sessionId"] === "string" ? payload["sessionId"] : "";
+
+      if (sessionId.length === 0) {
+        sendJson(response, 400, { error: "Missing sessionId in request body." });
+        return;
+      }
+
+      store.closeArchiveSession(sessionId);
+      sendJson(response, 200, { closed: true, sessionId });
+      return;
+    }
+
+    sendJson(response, 405, { error: "Unsupported method for /api/file/close." });
     return;
   }
 
   sendJson(response, 404, { error: "Unknown API endpoint." });
+}
+
+async function readJsonBody(request: IncomingMessage): Promise<Record<string, unknown>> {
+  const chunks: Buffer[] = [];
+  let total = 0;
+
+  for await (const chunk of request) {
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    total += buffer.length;
+
+    if (total > 4 * 1024 * 1024) {
+      throw new Error("Request body too large.");
+    }
+
+    chunks.push(buffer);
+  }
+
+  if (chunks.length === 0) {
+    return {};
+  }
+
+  const text = Buffer.concat(chunks).toString("utf8");
+  const parsed = JSON.parse(text) as unknown;
+
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("Expected a JSON object body.");
+  }
+
+  return parsed as Record<string, unknown>;
 }
 
 async function handleStaticRequest(
@@ -130,7 +221,7 @@ const server = createServer(async (request, response) => {
     const requestUrl = new URL(request.url ?? "/", "http://127.0.0.1");
 
     if (requestUrl.pathname.startsWith("/api/")) {
-      await handleApiRequest(requestUrl, response);
+      await handleApiRequest(request, requestUrl, response);
       return;
     }
 
@@ -138,7 +229,7 @@ const server = createServer(async (request, response) => {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unknown server error.";
-    sendJson(response, 500, { error: message });
+    sendJson(response, getErrorStatus(error), { error: message });
   }
 });
 
