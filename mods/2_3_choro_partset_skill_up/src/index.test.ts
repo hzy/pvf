@@ -16,31 +16,40 @@ import {
 
 const TARGET_SWORDMAN_SUPPORT_PATH =
   "equipment/character/common/support/support_3choro65.equ";
+const TARGET_SWORDMAN_OUTPUT_PATH =
+  "equipment/character/common/support/support_440453.equ";
 const TARGET_EXORCIST_SUPPORT_PATH =
   "equipment/character/common/support/support_3choro83.equ";
+const TARGET_EXORCIST_OUTPUT_PATH =
+  "equipment/character/common/support/support_440471.equ";
 const TARGET_AVENGER_SUPPORT_PATH =
   "equipment/character/common/support/support_3choro84.equ";
+const TARGET_AVENGER_OUTPUT_PATH =
+  "equipment/character/common/support/support_440472.equ";
+const EQUIPMENT_LIST_PATH = "equipment/equipment.lst";
 const EXPECTED_FILE_COUNT = 24;
+const EXPECTED_OVERLAY_COUNT = EXPECTED_FILE_COUNT + 1;
 
-test("buildChoroPartsetSkillUpMod returns target Choro support overlays", async () => {
+test("buildChoroPartsetSkillUpMod returns generated support overlays and equipment list update", async () => {
   const result = await buildChoroPartsetSkillUpMod({
     archivePath: DEFAULT_ARCHIVE_PATH,
   });
 
   assert.equal(result.files.length, EXPECTED_FILE_COUNT);
-  assert.equal(result.overlays.length, result.files.length);
+  assert.equal(result.overlays.length, EXPECTED_OVERLAY_COUNT);
   assert.equal(result.skipped.length, 0);
   assert.ok(
     result.overlays.every(
       (overlay) => overlay.mode === "script" && typeof overlay.content === "string",
     ),
   );
+  assert.ok(result.overlays.some((overlay) => overlay.path === EQUIPMENT_LIST_PATH));
 
   const swordmanSupport = result.files.find(
     (file) => file.supportPath === TARGET_SWORDMAN_SUPPORT_PATH,
   );
   const swordmanOverlay = result.overlays.find(
-    (overlay) => overlay.path === swordmanSupport?.supportPath,
+    (overlay) => overlay.path === swordmanSupport?.outputPath,
   );
   const exorcistSupport = result.files.find(
     (file) => file.supportPath === TARGET_EXORCIST_SUPPORT_PATH,
@@ -53,8 +62,12 @@ test("buildChoroPartsetSkillUpMod returns target Choro support overlays", async 
   assert.ok(swordmanOverlay);
   assert.ok(exorcistSupport);
   assert.ok(avengerSupport);
+  assert.equal(swordmanSupport.outputPath, TARGET_SWORDMAN_OUTPUT_PATH);
+  assert.equal(exorcistSupport.outputPath, TARGET_EXORCIST_OUTPUT_PATH);
+  assert.equal(avengerSupport.outputPath, TARGET_AVENGER_OUTPUT_PATH);
   assert.match(String(swordmanOverlay.content), /\[explain\]/u);
   assert.match(String(swordmanOverlay.content), /\[grade\]/u);
+  assert.match(String(swordmanOverlay.content), /诸界融核臂章 - 剑魂/u);
   assert.match(String(swordmanOverlay.content), /\n\t.+/u);
 
   const swordmanDocument = parseEquDocument(String(swordmanOverlay.content));
@@ -80,7 +93,7 @@ test("generateChoroPartsetSkillUpMod creates Choro support overlay files", async
     });
 
     assert.equal(result.files.length, EXPECTED_FILE_COUNT);
-    assert.equal(result.overlays.length, result.files.length);
+    assert.equal(result.overlays.length, EXPECTED_OVERLAY_COUNT);
     assert.equal(result.skipped.length, 0);
 
     const swordmanSupport = result.files.find(
@@ -103,16 +116,29 @@ test("generateChoroPartsetSkillUpMod creates Choro support overlay files", async
     );
 
     const swordmanText = await readFile(
-      resolve(outputDir, TARGET_SWORDMAN_SUPPORT_PATH),
+      resolve(outputDir, TARGET_SWORDMAN_OUTPUT_PATH),
+      "utf8",
+    );
+    const equipmentListText = await readFile(
+      resolve(outputDir, EQUIPMENT_LIST_PATH),
       "utf8",
     );
 
     assert.match(swordmanText, /\[skill data up\]/u);
     assert.match(swordmanText, /\[explain\]/u);
+    assert.match(swordmanText, /诸界融核臂章 - 剑魂/u);
     assert.match(swordmanText, /\n\t.+/u);
     assert.match(
       swordmanText,
       /108\t`\[dungeon type\]`\r?\n`\[level\]`\r?\n3\t`%`\r?\n30/u,
+    );
+    assert.match(
+      equipmentListText,
+      /440453\t`character\/common\/support\/support_440453\.equ`/u,
+    );
+    assert.match(
+      equipmentListText,
+      /440471\t`character\/common\/support\/support_440471\.equ`/u,
     );
   } finally {
     await rm(outputDir, { recursive: true, force: true });
@@ -134,25 +160,35 @@ test("applyChoroPartsetSkillUpMod writes Choro support overlays into a new PVF",
 
     assert.equal(result.files.length, EXPECTED_FILE_COUNT);
     assert.equal(result.skipped.length, 0);
-    assert.ok(result.updatedPaths.includes(TARGET_SWORDMAN_SUPPORT_PATH));
-    assert.ok(result.updatedPaths.includes(TARGET_EXORCIST_SUPPORT_PATH));
-    assert.ok(result.updatedPaths.includes(TARGET_AVENGER_SUPPORT_PATH));
+    assert.ok(result.updatedPaths.includes(EQUIPMENT_LIST_PATH));
+    assert.ok(result.addedPaths.includes(TARGET_SWORDMAN_OUTPUT_PATH));
+    assert.ok(result.addedPaths.includes(TARGET_EXORCIST_OUTPUT_PATH));
+    assert.ok(result.addedPaths.includes(TARGET_AVENGER_OUTPUT_PATH));
 
     const archive = new PvfArchive("Script.mod.pvf", outputPath);
 
     try {
       await archive.ensureLoaded();
       const content = await archive.readRenderedFile(
-        TARGET_SWORDMAN_SUPPORT_PATH,
+        TARGET_SWORDMAN_OUTPUT_PATH,
+        "simplified",
+      );
+      const equipmentListText = await archive.readRenderedFile(
+        EQUIPMENT_LIST_PATH,
         "simplified",
       );
 
       assert.match(content, /\[skill data up\]/u);
       assert.match(content, /\[explain\]/u);
+      assert.match(content, /诸界融核臂章 - 剑魂/u);
       assert.match(content, /\n\t.+/u);
       assert.match(
         content,
         /108\t`\[dungeon type\]`\r?\n`\[level\]`\r?\n3\t`%`\r?\n30/u,
+      );
+      assert.match(
+        equipmentListText,
+        /440453\t`character\/common\/support\/support_440453\.equ`/u,
       );
     } finally {
       await archive.close();
@@ -186,6 +222,7 @@ test("generated Choro support overlay files remain parseable", async () => {
       assert.equal(skillDataUpSections.length, 1, file.supportPath);
       assert.equal(explainSections.length, 1, file.supportPath);
       assert.ok(skillDataUpSections[0]?.children.length, file.supportPath);
+      assert.notEqual(file.supportPath, file.outputPath, file.className);
       const explainToken = explainSections[0]?.children[0];
       assert.ok(explainToken && explainToken.kind === "statement", file.supportPath);
 
