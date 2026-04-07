@@ -27,8 +27,12 @@ const TARGET_AVENGER_SUPPORT_PATH =
 const TARGET_AVENGER_OUTPUT_PATH =
   "equipment/character/common/support/support_440472.equ";
 const EQUIPMENT_LIST_PATH = "equipment/equipment.lst";
+const AI_CHARACTER_LIST_PATH = "aicharacter/aicharacter.lst";
+const TARGET_SUMMON_APC_PATH =
+  "aicharacter/_jojochan/swordman/soldoros/soldoros_doll.aic";
+const TARGET_SUMMON_APC_ID = 1520;
 const EXPECTED_FILE_COUNT = 24;
-const EXPECTED_OVERLAY_COUNT = EXPECTED_FILE_COUNT + 1;
+const EXPECTED_OVERLAY_COUNT = EXPECTED_FILE_COUNT + 3;
 
 test("buildChoroPartsetSkillUpMod returns generated support overlays and equipment list update", async () => {
   const result = await buildChoroPartsetSkillUpMod({
@@ -44,6 +48,8 @@ test("buildChoroPartsetSkillUpMod returns generated support overlays and equipme
     ),
   );
   assert.ok(result.overlays.some((overlay) => overlay.path === EQUIPMENT_LIST_PATH));
+  assert.ok(result.overlays.some((overlay) => overlay.path === AI_CHARACTER_LIST_PATH));
+  assert.ok(result.overlays.some((overlay) => overlay.path === TARGET_SUMMON_APC_PATH));
 
   const swordmanSupport = result.files.find(
     (file) => file.supportPath === TARGET_SWORDMAN_SUPPORT_PATH,
@@ -68,7 +74,24 @@ test("buildChoroPartsetSkillUpMod returns generated support overlays and equipme
   assert.match(String(swordmanOverlay.content), /\[explain\]/u);
   assert.match(String(swordmanOverlay.content), /\[grade\]/u);
   assert.match(String(swordmanOverlay.content), /诸界融核臂章 - 剑魂/u);
+  assert.match(
+    String(swordmanOverlay.content),
+    /剑圣索德罗斯协助自身战斗，剑圣索德罗斯存在15分钟。/u,
+  );
+  assert.match(String(swordmanOverlay.content), /\[command\]/u);
+  assert.match(
+    String(swordmanOverlay.content),
+    new RegExp(`\\[summon apc\\]\\r?\\n${TARGET_SUMMON_APC_ID}\\t99\\t1`, "u"),
+  );
   assert.match(String(swordmanOverlay.content), /\n\t.+/u);
+
+  const summonApcOverlay = result.overlays.find(
+    (overlay) => overlay.path === TARGET_SUMMON_APC_PATH,
+  );
+
+  assert.ok(summonApcOverlay);
+  assert.match(String(summonApcOverlay.content), /剑圣索德罗斯/u);
+  assert.match(String(summonApcOverlay.content), /\[attack damage rate\]\r?\n1\.0/u);
 
   const swordmanDocument = parseEquDocument(String(swordmanOverlay.content));
   const explainIndex = swordmanDocument.children.findIndex(
@@ -119,6 +142,14 @@ test("generateChoroPartsetSkillUpMod creates Choro support overlay files", async
       resolve(outputDir, TARGET_SWORDMAN_OUTPUT_PATH),
       "utf8",
     );
+    const summonApcText = await readFile(
+      resolve(outputDir, TARGET_SUMMON_APC_PATH),
+      "utf8",
+    );
+    const aiCharacterListText = await readFile(
+      resolve(outputDir, AI_CHARACTER_LIST_PATH),
+      "utf8",
+    );
     const equipmentListText = await readFile(
       resolve(outputDir, EQUIPMENT_LIST_PATH),
       "utf8",
@@ -127,6 +158,24 @@ test("generateChoroPartsetSkillUpMod creates Choro support overlay files", async
     assert.match(swordmanText, /\[skill data up\]/u);
     assert.match(swordmanText, /\[explain\]/u);
     assert.match(swordmanText, /诸界融核臂章 - 剑魂/u);
+    assert.match(
+      swordmanText,
+      /剑圣索德罗斯协助自身战斗，剑圣索德罗斯存在15分钟。/u,
+    );
+    assert.match(
+      swordmanText,
+      /\{6=`\(UP\)`\}\r?\n\{8=`,`\}\r?\n\{6=`\(DOWN\)`\}\r?\n\{8=`,`\}\r?\n\{6=`\(CREATURE\)`\}/u,
+    );
+    assert.match(
+      swordmanText,
+      new RegExp(`\\[summon apc\\]\\r?\\n${TARGET_SUMMON_APC_ID}\\t99\\t1`, "u"),
+    );
+    assert.match(summonApcText, /剑圣索德罗斯/u);
+    assert.match(summonApcText, /\[attack damage rate\]\r?\n1\.0/u);
+    assert.match(
+      aiCharacterListText,
+      /1520\t`_jojochan\/swordman\/soldoros\/soldoros_doll\.aic`/u,
+    );
     assert.match(swordmanText, /\n\t.+/u);
     assert.match(
       swordmanText,
@@ -160,7 +209,9 @@ test("applyChoroPartsetSkillUpMod writes Choro support overlays into a new PVF",
 
     assert.equal(result.files.length, EXPECTED_FILE_COUNT);
     assert.equal(result.skipped.length, 0);
+    assert.ok(result.updatedPaths.includes(AI_CHARACTER_LIST_PATH));
     assert.ok(result.updatedPaths.includes(EQUIPMENT_LIST_PATH));
+    assert.ok(result.addedPaths.includes(TARGET_SUMMON_APC_PATH));
     assert.ok(result.addedPaths.includes(TARGET_SWORDMAN_OUTPUT_PATH));
     assert.ok(result.addedPaths.includes(TARGET_EXORCIST_OUTPUT_PATH));
     assert.ok(result.addedPaths.includes(TARGET_AVENGER_OUTPUT_PATH));
@@ -173,6 +224,14 @@ test("applyChoroPartsetSkillUpMod writes Choro support overlays into a new PVF",
         TARGET_SWORDMAN_OUTPUT_PATH,
         "simplified",
       );
+      const summonApcText = await archive.readRenderedFile(
+        TARGET_SUMMON_APC_PATH,
+        "simplified",
+      );
+      const aiCharacterListText = await archive.readRenderedFile(
+        AI_CHARACTER_LIST_PATH,
+        "simplified",
+      );
       const equipmentListText = await archive.readRenderedFile(
         EQUIPMENT_LIST_PATH,
         "simplified",
@@ -181,6 +240,21 @@ test("applyChoroPartsetSkillUpMod writes Choro support overlays into a new PVF",
       assert.match(content, /\[skill data up\]/u);
       assert.match(content, /\[explain\]/u);
       assert.match(content, /诸界融核臂章 - 剑魂/u);
+      assert.match(
+        content,
+        /剑圣索德罗斯协助自身战斗，剑圣索德罗斯存在15分钟。/u,
+      );
+      assert.match(content, /\[if\]\r?\n\r?\n\[use command\]\r?\n1/u);
+      assert.match(
+        content,
+        new RegExp(`\\[summon apc\\]\\r?\\n${TARGET_SUMMON_APC_ID}\\t99\\t1`, "u"),
+      );
+      assert.match(summonApcText, /剑圣索德罗斯/u);
+      assert.match(summonApcText, /\[attack damage rate\]\r?\n1\.0/u);
+      assert.match(
+        aiCharacterListText,
+        /1520\t`_jojochan\/swordman\/soldoros\/soldoros_doll\.aic`/u,
+      );
       assert.match(content, /\n\t.+/u);
       assert.match(
         content,
@@ -218,9 +292,24 @@ test("generated Choro support overlay files remain parseable", async () => {
         (node): node is (typeof document.children)[number] & { kind: "section" } =>
           node.kind === "section" && node.name === "explain",
       );
+      const commandSections = document.children.filter(
+        (node): node is (typeof document.children)[number] & { kind: "section" } =>
+          node.kind === "section" && node.name === "command",
+      );
+      const ifSections = document.children.filter(
+        (node): node is (typeof document.children)[number] & { kind: "section" } =>
+          node.kind === "section" && node.name === "if",
+      );
+      const thenSections = document.children.filter(
+        (node): node is (typeof document.children)[number] & { kind: "section" } =>
+          node.kind === "section" && node.name === "then",
+      );
 
       assert.equal(skillDataUpSections.length, 1, file.supportPath);
       assert.equal(explainSections.length, 1, file.supportPath);
+      assert.equal(commandSections.length, 1, file.supportPath);
+      assert.equal(ifSections.length, 1, file.supportPath);
+      assert.equal(thenSections.length, 1, file.supportPath);
       assert.ok(skillDataUpSections[0]?.children.length, file.supportPath);
       assert.notEqual(file.supportPath, file.outputPath, file.className);
       const explainToken = explainSections[0]?.children[0];
@@ -237,7 +326,11 @@ test("generated Choro support overlay files remain parseable", async () => {
         throw new Error(`Missing explain string token for ${file.supportPath}`);
       }
 
-      assert.match(firstToken.value, /^\S.+\n\t.+/u, file.supportPath);
+      assert.match(
+        firstToken.value,
+        /剑圣索德罗斯协助自身战斗，剑圣索德罗斯存在15分钟。\n获得以下套装的套装效果：\n\t.+/u,
+        file.supportPath,
+      );
     }
   } finally {
     await rm(outputDir, { recursive: true, force: true });
