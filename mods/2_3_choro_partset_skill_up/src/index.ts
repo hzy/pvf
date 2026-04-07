@@ -4,6 +4,8 @@ import { fileURLToPath } from "node:url";
 
 import {
   parseEquDocument,
+  createCommandToken,
+  createIdentifierToken,
   createStatement,
   createSection,
   createIntToken,
@@ -34,12 +36,18 @@ const STACKABLE_PATHS = [
 
 const EQUIPMENT_LIST_PATH = "equipment/equipment.lst";
 const EQUIPMENT_PARTSET_PATH = "etc/equipmentpartset.etc";
+const AI_CHARACTER_LIST_PATH = "aicharacter/aicharacter.lst";
 const SUPPORT_TEMPLATE_PATH = "equipment/character/common/support/support_440003.equ";
 const SUPPORT_NAME_SEPARATOR = " - ";
 const TARGET_PIECE_COUNTS = new Set([3, 6, 9]);
 const EXPLAIN_HEADING = "获得以下套装的套装效果：";
 const GENERATED_SUPPORT_NAME_PREFIX = "诸界融核臂章";
 const GENERATED_SUPPORT_ID_START = 440453;
+const SUPPORT_SUMMON_SOURCE_NAME = "\u5251\u5723\u7d22\u5fb7\u7f57\u65af";
+const SUPPORT_SUMMON_COOLDOWN = 900_000;
+const SUPPORT_SUMMON_EXPLAIN =
+  "↑↓+[宠物技能指令]输入时，可以召唤出剑圣索德罗斯协助自身战斗，剑圣索德罗斯存在15分钟。";
+const SUPPORT_SUMMON_ATTACK_DAMAGE_RATE = "1.0";
 
 export interface GenerateChoroPartsetSkillUpModOptions {
   archivePath?: string;
@@ -103,6 +111,16 @@ interface SkillEntryBlock {
   pieceCount: number;
   sourcePartsetPath: string;
   statements: EquStatementNode[];
+}
+
+interface ListedPathEntry {
+  id: number;
+  path: string;
+}
+
+interface ListedPathFile {
+  id: number;
+  path: string;
 }
 
 function isSection(node: EquNode): node is EquSectionNode {
@@ -350,8 +368,22 @@ async function loadEquipmentPathById(
   archive: PvfArchive,
   textProfile: TextProfile,
 ): Promise<Map<number, string>> {
-  const content = await archive.readRenderedFile(EQUIPMENT_LIST_PATH, textProfile);
-  const equipmentPathById = new Map<number, string>();
+  return loadListedPathById(
+    archive,
+    EQUIPMENT_LIST_PATH,
+    "equipment",
+    textProfile,
+  );
+}
+
+async function loadListedPathById(
+  archive: PvfArchive,
+  listPath: string,
+  rootPath: string,
+  textProfile: TextProfile,
+): Promise<Map<number, string>> {
+  const content = await archive.readRenderedFile(listPath, textProfile);
+  const pathById = new Map<number, string>();
 
   for (const rawLine of content.split(/\r?\n/u)) {
     const match = /^(\d+)\t`(.+)`$/u.exec(rawLine.trim());
@@ -360,13 +392,55 @@ async function loadEquipmentPathById(
       continue;
     }
 
-    equipmentPathById.set(
+    pathById.set(
       Number.parseInt(match[1] ?? "0", 10),
-      `equipment/${match[2] ?? ""}`,
+      `${rootPath}/${match[2] ?? ""}`,
     );
   }
 
-  return equipmentPathById;
+  return pathById;
+}
+
+function findNextAvailableListedPathId(
+  pathById: ReadonlyMap<number, string>,
+  startId: number,
+): number {
+  let nextId = startId + 1;
+
+  while (pathById.has(nextId)) {
+    nextId += 1;
+  }
+
+  return nextId;
+}
+
+async function findAiCharacterByName(
+  archive: PvfArchive,
+  textProfile: TextProfile,
+  targetName: string,
+): Promise<ListedPathEntry> {
+  const pathById = await loadListedPathById(
+    archive,
+    AI_CHARACTER_LIST_PATH,
+    "aicharacter",
+    textProfile,
+  );
+
+  for (const [aicId, aicPath] of [...pathById.entries()].sort(
+    (left, right) => left[0] - right[0],
+  )) {
+    const document = await readEquDocument(archive, aicPath, textProfile);
+    const minimumInfoName = getFirstSectionString(document.children, "minimum info")?.trim();
+
+    if (minimumInfoName === targetName) {
+      return {
+        id: aicId,
+        path: aicPath,
+      };
+    }
+  }
+
+  throw new Error(`Unable to find APC id for ${targetName}.`);
 }
 
 async function loadPartsetPathByIndex(
@@ -676,7 +750,7 @@ function replaceTopLevelSkillDataUp(
 
 function buildExplainText(sourcePartsets: readonly string[], partsetNameByPath: Map<string, string>): string {
   const seen = new Set<string>();
-  const lines = [EXPLAIN_HEADING];
+  const lines = [SUPPORT_SUMMON_EXPLAIN, EXPLAIN_HEADING];
 
   for (const partsetPath of sourcePartsets) {
     const partsetName = partsetNameByPath.get(partsetPath)?.trim();
@@ -751,6 +825,56 @@ function createSingleStringSection(name: string, value: string): EquSectionNode 
   return createSection(name, [createStatement([createStringToken(value)])]);
 }
 
+function createSingleIntSection(name: string, value: number): EquSectionNode {
+  return createSection(name, [createStatement([createIntToken(value)])]);
+}
+
+function createSingleFloatLiteralSection(name: string, value: string): EquSectionNode {
+  return createSection(name, [createStatement([createIdentifierToken(value)])]);
+}
+
+function buildSupportSummonSections(apcId: number): EquSectionNode[] {
+  return [
+    createSection(
+      "command",
+      [
+        createStatement([createCommandToken(6, "(UP)")]),
+        createStatement([createCommandToken(8, ",")]),
+        createStatement([createCommandToken(6, "(DOWN)")]),
+        createStatement([createCommandToken(8, ",")]),
+        createStatement([createCommandToken(6, "(CREATURE)")]),
+      ],
+      true,
+    ),
+    createSection(
+      "if",
+      [
+        createSingleIntSection("use command", 1),
+        createSingleIntSection("cooltime", SUPPORT_SUMMON_COOLDOWN),
+      ],
+      true,
+    ),
+    createSection(
+      "then",
+      [
+        createSingleIntSection("duration", SUPPORT_SUMMON_COOLDOWN),
+        createSection("target", [
+          createStatement([createStringToken("myself"), createIntToken(-1)]),
+        ]),
+        createSection("summon apc", [
+          createStatement([
+            createIntToken(apcId),
+            // createIntToken(-1), // APC level, -1 to match player level.
+            createIntToken(99),
+            createIntToken(1),
+          ]),
+        ]),
+      ],
+      true,
+    ),
+  ];
+}
+
 function buildGeneratedSupportName(className: string): string {
   return `${GENERATED_SUPPORT_NAME_PREFIX}${SUPPORT_NAME_SEPARATOR}${className}`;
 }
@@ -759,73 +883,89 @@ function buildGeneratedSupportPath(equipmentId: number): string {
   return `equipment/character/common/support/support_${equipmentId}.equ`;
 }
 
-function toEquipmentListRelativePath(archivePath: string): string {
-  if (!archivePath.startsWith("equipment/")) {
-    throw new Error(`Expected equipment path, received ${archivePath}.`);
+function buildSupportSummonDollPath(archivePath: string): string {
+  if (!archivePath.endsWith(".aic")) {
+    throw new Error(`Expected .aic path, received ${archivePath}.`);
   }
 
-  return archivePath.slice("equipment/".length);
+  return archivePath.replace(/\.aic$/u, "_doll.aic");
 }
 
-function createEquipmentListStatement(
-  equipmentId: number,
+function toListedPathRelativePath(
   archivePath: string,
+  rootPath: string,
+): string {
+  const prefix = `${rootPath}/`;
+
+  if (!archivePath.startsWith(prefix)) {
+    throw new Error(`Expected ${rootPath} path, received ${archivePath}.`);
+  }
+
+  return archivePath.slice(prefix.length);
+}
+
+function createListedPathStatement(
+  id: number,
+  archivePath: string,
+  rootPath: string,
 ): EquStatementNode {
   return createStatement([
-    createIntToken(equipmentId),
-    createStringToken(toEquipmentListRelativePath(archivePath)),
+    createIntToken(id),
+    createStringToken(toListedPathRelativePath(archivePath, rootPath)),
   ]);
 }
 
-function updateEquipmentListDocument(
+function updateListedPathDocument(
   document: EquDocument,
-  files: readonly GeneratedSupportFile[],
+  rootPath: string,
+  files: readonly ListedPathFile[],
 ): EquDocument {
   const overridesById = new Map(
     files.map((file) => [
-      file.equipmentId,
-      toEquipmentListRelativePath(file.outputPath),
+      file.id,
+      toListedPathRelativePath(file.path, rootPath),
     ]),
   );
   const overridePaths = new Set(overridesById.values());
   const entries = document.children
     .filter(isStatement)
     .map((statement) => {
-      const equipmentId = statement.tokens.find((token) => token.kind === "int")?.value;
+      const id = statement.tokens.find((token) => token.kind === "int")?.value;
       const relativePath = statement.tokens.find((token) => token.kind === "string")?.value;
 
-      return equipmentId !== undefined && relativePath !== undefined
-        ? { equipmentId, relativePath }
+      return id !== undefined && relativePath !== undefined
+        ? { id, relativePath }
         : undefined;
     })
     .filter(
       (
         entry,
       ): entry is {
-        equipmentId: number;
+        id: number;
         relativePath: string;
       } => entry !== undefined,
     )
     .filter(
       (entry) =>
-        !overridesById.has(entry.equipmentId) && !overridePaths.has(entry.relativePath),
+        !overridesById.has(entry.id) && !overridePaths.has(entry.relativePath),
     );
 
   for (const file of files) {
     entries.push({
-      equipmentId: file.equipmentId,
-      relativePath: toEquipmentListRelativePath(file.outputPath),
+      id: file.id,
+      relativePath: toListedPathRelativePath(file.path, rootPath),
     });
   }
 
-  entries.sort((left, right) => left.equipmentId - right.equipmentId);
+  entries.sort((left, right) => left.id - right.id);
 
   return {
     ...document,
     children: entries.map((entry) =>
-      createEquipmentListStatement(
-        entry.equipmentId,
-        `equipment/${entry.relativePath}`,
+      createListedPathStatement(
+        entry.id,
+        `${rootPath}/${entry.relativePath}`,
+        rootPath,
       ),
     ),
   };
@@ -922,13 +1062,68 @@ async function buildChoroPartsetSkillUpModFromArchive(
     SUPPORT_TEMPLATE_PATH,
     textProfile,
   );
+  const aiCharacterListPathById = await loadListedPathById(
+    archive,
+    AI_CHARACTER_LIST_PATH,
+    "aicharacter",
+    textProfile,
+  );
+  aiCharacterListPathById;
+  const aiCharacterListDocument = parseEquDocument(
+    await archive.readRenderedFile(AI_CHARACTER_LIST_PATH, textProfile),
+  );
   const equipmentListDocument = parseEquDocument(
     await archive.readRenderedFile(EQUIPMENT_LIST_PATH, textProfile),
   );
+  const supportSummonApc = await findAiCharacterByName(
+    archive,
+    textProfile,
+    SUPPORT_SUMMON_SOURCE_NAME,
+  );
+  const supportSummonApcDocument = await readEquDocument(
+    archive,
+    supportSummonApc.path,
+    textProfile,
+  );
+  const supportSummonDollId = findNextAvailableListedPathId(
+    aiCharacterListPathById,
+    supportSummonApc.id,
+  );
+  const supportSummonDollPath = buildSupportSummonDollPath(supportSummonApc.path);
   const files: GeneratedSupportFile[] = [];
   const overlays: PvfOverlayFile[] = [];
   const skipped: SkippedSupportFile[] = [];
   let nextEquipmentId = GENERATED_SUPPORT_ID_START;
+
+  overlays.push({
+    path: supportSummonDollPath,
+    content: stringifyEquDocument(
+      replaceTopLevelSection(
+        supportSummonApcDocument,
+        createSingleFloatLiteralSection(
+          "attack damage rate",
+          SUPPORT_SUMMON_ATTACK_DAMAGE_RATE,
+        ),
+      ),
+    ),
+    mode: "script",
+  });
+  overlays.push({
+    path: AI_CHARACTER_LIST_PATH,
+    content: stringifyEquDocument(
+      updateListedPathDocument(
+        aiCharacterListDocument,
+        "aicharacter",
+        [
+          {
+            id: supportSummonDollId,
+            path: supportSummonDollPath,
+          },
+        ],
+      ),
+    ),
+    mode: "script",
+  });
 
   for (const [className, supportPaths] of [...supportPathsByClass].sort((left, right) =>
     comparePaths(left[1]?.[0] ?? "", right[1]?.[0] ?? ""),
@@ -1002,6 +1197,14 @@ async function buildChoroPartsetSkillUpModFromArchive(
         );
       }
 
+      for (const section of buildSupportSummonSections(supportSummonDollId)) {
+        nextDocument = replaceTopLevelSection(
+          nextDocument,
+          section,
+          ["skill data up", "possible kiri protect", "icon mark"],
+        );
+      }
+
       nextDocument = replaceTopLevelExplain(nextDocument, explainText);
       nextDocument = replaceTopLevelSkillDataUp(nextDocument, skillDataUpSection);
 
@@ -1025,7 +1228,16 @@ async function buildChoroPartsetSkillUpModFromArchive(
   if (files.length > 0) {
     overlays.push({
       path: EQUIPMENT_LIST_PATH,
-      content: stringifyEquDocument(updateEquipmentListDocument(equipmentListDocument, files)),
+      content: stringifyEquDocument(
+        updateListedPathDocument(
+          equipmentListDocument,
+          "equipment",
+          files.map((file) => ({
+            id: file.equipmentId,
+            path: file.outputPath,
+          })),
+        ),
+      ),
       mode: "script",
     });
   }
