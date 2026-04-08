@@ -3,6 +3,7 @@ import iconv from "iconv-lite";
 import type { TextProfile } from "./types.ts";
 
 const PVF_PASSWORD = 0x81a79011;
+const LITTLE_ENDIAN_CHECK = new Uint8Array(new Uint32Array([1]).buffer)[0] === 1;
 
 export function toBufferView(input: Uint8Array): Buffer {
   return Buffer.isBuffer(input)
@@ -19,6 +20,27 @@ export function getTextEncoding(textProfile: TextProfile): string {
 }
 
 export function normalizeArchivePath(input: string): string {
+  if (input.length === 0) {
+    return input;
+  }
+
+  const firstCode = input.charCodeAt(0);
+  const lastCode = input.charCodeAt(input.length - 1);
+  let needsSlowPath = firstCode === 47 || lastCode === 47 || firstCode <= 0x20 || lastCode <= 0x20;
+
+  for (let index = 0; index < input.length; index += 1) {
+    const code = input.charCodeAt(index);
+
+    if (code === 92 || (code >= 65 && code <= 90)) {
+      needsSlowPath = true;
+      break;
+    }
+  }
+
+  if (!needsSlowPath) {
+    return input;
+  }
+
   return input.replaceAll("\\", "/").trim().replace(/^\/+|\/+$/g, "").toLowerCase();
 }
 
@@ -81,6 +103,17 @@ function decryptBuffer(buffer: Buffer, length: number, checksum: number): void {
     throw new Error(`Encrypted block length must be divisible by 4, received ${length}.`);
   }
 
+  if (LITTLE_ENDIAN_CHECK && (buffer.byteOffset & 3) === 0) {
+    const words = new Uint32Array(buffer.buffer, buffer.byteOffset, length >>> 2);
+    const xorMask = (PVF_PASSWORD ^ checksum) >>> 0;
+
+    for (let index = 0; index < words.length; index += 1) {
+      words[index] = rotateRight32((words[index]! ^ xorMask) >>> 0, 6);
+    }
+
+    return;
+  }
+
   for (let offset = 0; offset < length; offset += 4) {
     const encrypted = buffer.readUInt32LE(offset);
     const decrypted = rotateRight32((encrypted ^ PVF_PASSWORD ^ checksum) >>> 0, 6);
@@ -99,7 +132,23 @@ export function encryptPvf(sourceBytes: Uint8Array, checksum: number): Buffer {
   const alignedLength = align4(source.length);
   const padded = Buffer.alloc(alignedLength);
   source.copy(padded);
-  const encrypted = Buffer.alloc(alignedLength);
+  const encrypted = Buffer.allocUnsafe(alignedLength);
+
+  if (LITTLE_ENDIAN_CHECK && (padded.byteOffset & 3) === 0 && (encrypted.byteOffset & 3) === 0) {
+    const sourceWords = new Uint32Array(padded.buffer, padded.byteOffset, alignedLength >>> 2);
+    const encryptedWords = new Uint32Array(
+      encrypted.buffer,
+      encrypted.byteOffset,
+      alignedLength >>> 2,
+    );
+    const xorMask = (checksum ^ PVF_PASSWORD) >>> 0;
+
+    for (let index = 0; index < sourceWords.length; index += 1) {
+      encryptedWords[index] = (rotateLeft32(sourceWords[index]!, 6) ^ xorMask) >>> 0;
+    }
+
+    return encrypted;
+  }
 
   for (let index = 0; index < alignedLength; index += 4) {
     const value = padded.readUInt32LE(index);

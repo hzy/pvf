@@ -251,18 +251,22 @@ export class PvfArchive {
   #parseDirectoryTree(treeBytes: Uint8Array): void {
     const view = toDataView(treeBytes);
     const buffer = toBufferView(treeBytes);
+    this.#entriesInOrder = new Array<PvfFileRecord>(this.header.numFilesInDirTree);
     let offset = 0;
 
     for (let treeIndex = 0; treeIndex < this.header.numFilesInDirTree; treeIndex += 1) {
       const fileNameHash = view.getUint32(offset, true);
       const filePathLength = view.getInt32(offset + 4, true);
-      const fileNameBytes = Buffer.from(buffer.subarray(offset + 8, offset + 8 + filePathLength));
+      const pathStart = offset + 8;
+      const pathEnd = pathStart + filePathLength;
+      const fileNameBytes = buffer.subarray(pathStart, pathEnd);
       const fileLength = view.getInt32(offset + 8 + filePathLength, true);
       const fileCrc32 = view.getUint32(offset + 12 + filePathLength, true);
       const relativeOffset = view.getInt32(offset + 16 + filePathLength, true);
       const displayPath = decodeFilePath(fileNameBytes);
       const filePath = normalizeArchivePath(displayPath);
-      const fileName = displayPath.split("/").at(-1) ?? displayPath;
+      const fileNameStart = displayPath.lastIndexOf("/") + 1;
+      const fileName = displayPath.slice(fileNameStart);
       const record: PvfFileRecord = {
         treeIndex,
         fileNameHash,
@@ -278,30 +282,38 @@ export class PvfArchive {
       };
 
       this.#entriesByPath.set(filePath, record);
-      this.#entriesInOrder.push(record);
+      this.#entriesInOrder[treeIndex] = record;
       this.#insertFile(record);
       offset += filePathLength + 20;
     }
   }
 
   #insertFile(record: PvfFileRecord): void {
-    const segments = record.displayPath.split("/").filter((segment) => segment.length > 0);
     let current = this.#root;
+    const lastSlashIndex = record.filePath.lastIndexOf("/");
+    let segmentStart = 0;
 
-    for (const segment of segments.slice(0, -1)) {
-      const normalizedSegment = normalizeArchivePath(segment);
-      let next = current.directories.get(normalizedSegment);
+    while (segmentStart < lastSlashIndex) {
+      const slashIndex = record.filePath.indexOf("/", segmentStart);
+
+      if (slashIndex === -1) {
+        break;
+      }
+
+      const segment = record.filePath.slice(segmentStart, slashIndex);
+      let next = current.directories.get(segment);
 
       if (!next) {
         const nextPath = current.path.length === 0 ? segment : `${current.path}/${segment}`;
         next = createDirectoryNode(segment, nextPath);
-        current.directories.set(normalizedSegment, next);
+        current.directories.set(segment, next);
       }
 
       current = next;
+      segmentStart = slashIndex + 1;
     }
 
-    current.files.set(normalizeArchivePath(record.fileName), record);
+    current.files.set(record.fileName, record);
   }
 
   async #getTextResources(textProfile: TextProfile): Promise<TextResources> {
