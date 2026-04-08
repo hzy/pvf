@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url";
+
 import { stringifyEquDocument, visitEqu } from "./equ.ts";
 import { expectedStrings, fixturePath, samplePaths } from "./pvf.fixture.ts";
 import { PvfArchive } from "./pvf.ts";
@@ -25,6 +27,6 @@ async function main(): Promise<void> {
   await archive.close();
 }
 
-if (import.meta.main) {
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
   await main();
 }

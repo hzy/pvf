@@ -306,9 +306,9 @@ test("generated Choro support overlay files remain parseable", async () => {
       assert.ok(skillDataUpSections[0]?.children.length, file.supportPath);
       assert.notEqual(file.supportPath, file.outputPath, file.className);
       const explainToken = explainSections[0]?.children[0];
-      assert.ok(explainToken && explainToken.kind === "statement", file.supportPath);
+      assert.ok(explainToken?.kind === "statement", file.supportPath);
 
-      if (!explainToken || explainToken.kind !== "statement") {
+      if (explainToken?.kind !== "statement") {
         throw new Error(`Missing explain statement for ${file.supportPath}`);
       }
 

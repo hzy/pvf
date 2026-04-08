@@ -1,10 +1,12 @@
 import { readFile } from "node:fs/promises";
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { createServer } from "node:http";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { FixtureStore } from "./fixture-store.ts";
-import { DEFAULT_TEXT_PROFILE, type TextProfile } from "./pvf.ts";
+import { DEFAULT_TEXT_PROFILE } from "./pvf.ts";
+import type { TextProfile } from "./pvf.ts";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(currentDir, "../../..");
@@ -110,7 +112,9 @@ async function handleApiRequest(
       const payload = await readJsonBody(request);
       const filePath = typeof payload["path"] === "string" ? payload["path"] : "";
       const textProfile = parseTextProfile(
-        typeof payload["textProfile"] === "string" ? payload["textProfile"] : null,
+        typeof payload["textProfile"] === "string"
+          ? payload["textProfile"]
+          : null,
       );
 
       if (!filePath) {
@@ -118,11 +122,17 @@ async function handleApiRequest(
         return;
       }
 
-      sendJson(response, 200, await store.openArchiveFile(archiveId, filePath, textProfile));
+      sendJson(
+        response,
+        200,
+        await store.openArchiveFile(archiveId, filePath, textProfile),
+      );
       return;
     }
 
-    sendJson(response, 405, { error: "Unsupported method for /api/file/open." });
+    sendJson(response, 405, {
+      error: "Unsupported method for /api/file/open.",
+    });
     return;
   }
 
@@ -130,11 +140,15 @@ async function handleApiRequest(
     if (request.method === "POST") {
       const payload = await readJsonBody(request);
       const sessionId = typeof payload["sessionId"] === "string" ? payload["sessionId"] : "";
-      const version = typeof payload["version"] === "number" ? payload["version"] : Number.NaN;
+      const version = typeof payload["version"] === "number"
+        ? payload["version"]
+        : Number.NaN;
       const content = typeof payload["content"] === "string" ? payload["content"] : "";
 
       if (sessionId.length === 0 || !Number.isInteger(version)) {
-        sendJson(response, 400, { error: "Missing sessionId or version in request body." });
+        sendJson(response, 400, {
+          error: "Missing sessionId or version in request body.",
+        });
         return;
       }
 
@@ -146,7 +160,9 @@ async function handleApiRequest(
       return;
     }
 
-    sendJson(response, 405, { error: "Unsupported method for /api/file/save." });
+    sendJson(response, 405, {
+      error: "Unsupported method for /api/file/save.",
+    });
     return;
   }
 
@@ -156,7 +172,9 @@ async function handleApiRequest(
       const sessionId = typeof payload["sessionId"] === "string" ? payload["sessionId"] : "";
 
       if (sessionId.length === 0) {
-        sendJson(response, 400, { error: "Missing sessionId in request body." });
+        sendJson(response, 400, {
+          error: "Missing sessionId in request body.",
+        });
         return;
       }
 
@@ -165,19 +183,25 @@ async function handleApiRequest(
       return;
     }
 
-    sendJson(response, 405, { error: "Unsupported method for /api/file/close." });
+    sendJson(response, 405, {
+      error: "Unsupported method for /api/file/close.",
+    });
     return;
   }
 
   sendJson(response, 404, { error: "Unknown API endpoint." });
 }
 
-async function readJsonBody(request: IncomingMessage): Promise<Record<string, unknown>> {
+async function readJsonBody(
+  request: IncomingMessage,
+): Promise<Record<string, unknown>> {
   const chunks: Buffer[] = [];
   let total = 0;
 
   for await (const chunk of request) {
-    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    const buffer = Buffer.isBuffer(chunk)
+      ? chunk
+      : Buffer.from(chunk as ArrayBuffer);
     total += buffer.length;
 
     if (total > 4 * 1024 * 1024) {
@@ -217,7 +241,10 @@ async function handleStaticRequest(
   sendText(response, 200, content, getStaticContentType(filePath));
 }
 
-const server = createServer(async (request, response) => {
+async function handleRequest(
+  request: IncomingMessage,
+  response: ServerResponse,
+): Promise<void> {
   try {
     const requestUrl = new URL(request.url ?? "/", "http://127.0.0.1");
 
@@ -231,6 +258,10 @@ const server = createServer(async (request, response) => {
     const message = error instanceof Error ? error.message : "Unknown server error.";
     sendJson(response, getErrorStatus(error), { error: message });
   }
+}
+
+const server = createServer((request, response) => {
+  void handleRequest(request, response);
 });
 
 const port = Number(process.env["PVF_EXPLORER_PORT"] ?? "4318");
