@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { PvfArchive } from "./index.ts";
 import {
   expectedStrings,
   fixturePath,
   samplePaths,
 } from "../../../apps/pvf-explorer/src/pvf.fixture.ts";
-import { PvfArchive } from "./index.ts";
 
 test("PvfArchive.write rewrites Script.pvf with script and text overlays", async () => {
   const modifiedEqu = [
