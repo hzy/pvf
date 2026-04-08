@@ -26,7 +26,6 @@ export default tseslint.config(
       "**/test/js",
       "**/dist/**",
       "**/lib/**",
-      "website/doc_build/**",
       ".changeset/*",
       "**/CHANGELOG.md",
       "**/etc/*.md",
@@ -38,75 +37,12 @@ export default tseslint.config(
       // Test snapshots
       "**/expected/**",
       "**/rspack-expected/**",
-      "packages/react/transform/tests/__swc_snapshots__/**",
-      "packages/react/transform/__test__/**/__snapshots__/**",
-
-      "packages/react/transform/**/tests/__swc_snapshots__/**",
 
       // Configs
       "eslint.config.js",
       "vitest.config.ts",
       "**/rslib.config.ts",
-
-      // Ignored packages
       "packages/**/vitest.config.ts",
-      "packages/react/runtime/compat/**",
-      "packages/rspeedy/create-rspeedy/template-*/**",
-      "packages/{rspeedy,webpack}/*/test/**/cases/**",
-      "packages/{rspeedy,webpack}/*/test/**/hotCases/**",
-      "packages/{rspeedy,webpack}/*/test/**/diagnostic/**",
-      "packages/{rspeedy,webpack}/*/test/**/fixtures/**",
-      "packages/webpack/**/runtime/**",
-      "packages/webpack/css-extract-webpack-plugin/test/js/**",
-      "packages/webpack/css-extract-webpack-plugin/test/rspack-js/**",
-      // Generated
-      "packages/react/transform/index.d.ts",
-      "packages/react/transform/index.cjs",
-      "packages/react/transform/**/index.d.ts",
-
-      // REPL examples use Lynx platform globals and are not subject to lint rules
-      "packages/repl/src/examples/**",
-      // REPL components use Vite path aliases and ?raw imports not handled by root tsconfig
-      "packages/repl/src/components/**",
-      "packages/repl/src/editor.ts",
-      // REPL build config is not part of the TS project
-      "packages/repl/rsbuild.config.ts",
-
-      // TODO: enable eslint for react
-      // react
-      "packages/react/types/**",
-      "packages/react/runtime/__test__/**",
-      "packages/react/runtime/jsx-dev-runtime/**",
-      "packages/react/runtime/jsx-runtime/**",
-      "packages/react/runtime/lazy/**",
-      "packages/react/runtime/lepus/**",
-      "packages/react/runtime/src/renderToOpcodes/**",
-      "packages/react/runtime/types/**",
-
-      // TODO: enable eslint for react-runtime
-      "packages/react/runtime/src/compat/**",
-      "packages/react/runtime/src/opcodes.ts",
-
-      // TODO: enable eslint for tools
-      // tools
-      "packages/tools/**",
-
-      // TODO: enable eslint for web-platform
-      // web-platform
-      "packages/web-platform/**",
-
-      // TODO: enable eslint for testing-library
-      // testing-library
-      "packages/testing-library/**",
-      "packages/react/testing-library/**",
-
-      // gesture-runtime-testing
-      "packages/lynx/gesture-runtime/__test__/**",
-      // motion tests
-      "packages/motion/__tests__/**",
-      // TODO: enable eslint for tailwind-preset
-      // tailwind-preset
-      "packages/tailwind-preset/**",
     ],
   },
   js.configs.recommended,
