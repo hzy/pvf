@@ -20,17 +20,17 @@
   "lint-staged": {
     "*.{ts,js,mjs,cjs}": [
       "eslint --fix",
-      "dprint fmt"
+      "dprint fmt --allow-no-files --"
     ],
     "!(package).json": [
-      "dprint fmt"
+      "dprint fmt --allow-no-files --"
     ],
     "*.{jsonc,md,html,css,yml,yaml}": [
-      "dprint fmt"
+      "dprint fmt --allow-no-files --"
     ],
     "package.json": [
       "sort-package-json",
-      "dprint fmt"
+      "dprint fmt --allow-no-files --"
     ]
   },
   "devDependencies": {
