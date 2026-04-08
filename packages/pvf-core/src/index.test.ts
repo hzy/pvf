@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { fixturePath, samplePaths, expectedStrings } from "../../../apps/pvf-explorer/src/pvf.fixture.ts";
+import {
+  expectedStrings,
+  fixturePath,
+  samplePaths,
+} from "../../../apps/pvf-explorer/src/pvf.fixture.ts";
 import { PvfArchive } from "./index.ts";
 
 test("PvfArchive.write rewrites Script.pvf with script and text overlays", async () => {
@@ -50,7 +54,10 @@ test("PvfArchive.write rewrites Script.pvf with script and text overlays", async
     await repackedArchive.ensureLoaded();
 
     const repackedEqu = await repackedArchive.readRenderedFile(samplePaths.amulet, "simplified");
-    const repackedStr = await repackedArchive.readRenderedFile("equipment/equipment.kor.str", "simplified");
+    const repackedStr = await repackedArchive.readRenderedFile(
+      "equipment/equipment.kor.str",
+      "simplified",
+    );
 
     assert.match(repackedEqu, /\[writer smoke\]/u);
     assert.match(repackedEqu, /`brand new writer string`/u);

@@ -15,12 +15,12 @@ body {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(179, 170, 158, 0.35)),
     repeating-linear-gradient(
-      90deg,
-      rgba(255, 255, 255, 0.08) 0,
-      rgba(255, 255, 255, 0.08) 2px,
-      transparent 2px,
-      transparent 10px
-    ),
+    90deg,
+    rgba(255, 255, 255, 0.08) 0,
+    rgba(255, 255, 255, 0.08) 2px,
+    transparent 2px,
+    transparent 10px
+  ),
     #b7afa3;
 }
 
@@ -253,7 +253,13 @@ body {
   line-height: 1.5;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(240, 233, 224, 0.95)),
-    repeating-linear-gradient(180deg, transparent 0, transparent 22px, rgba(114, 91, 63, 0.05) 22px, rgba(114, 91, 63, 0.05) 23px);
+    repeating-linear-gradient(
+    180deg,
+    transparent 0,
+    transparent 22px,
+    rgba(114, 91, 63, 0.05) 22px,
+    rgba(114, 91, 63, 0.05) 23px
+  );
 }
 
 .content__editor {

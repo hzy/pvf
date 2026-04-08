@@ -5,11 +5,11 @@ import {
   createSection,
   createStatement,
   createStringToken,
-  parseEquDocument,
-  stringifyEquDocument,
   type EquDocument,
   type EquSectionNode,
   type EquToken,
+  parseEquDocument,
+  stringifyEquDocument,
   visitEqu,
 } from "./equ.ts";
 import { expectedStrings, fixturePath, samplePaths } from "./pvf.fixture.ts";
@@ -91,7 +91,9 @@ test("parses repeated closable blocks and nested sections", async () => {
   assert.equal(thenSections.length, 2);
   assert.ok(ifSections.every((section) => section.closable));
   assert.ok(thenSections.every((section) => section.closable));
-  assert.ok(ifSections.every((section) => section.children.some((child) => child.kind === "section")));
+  assert.ok(
+    ifSections.every((section) => section.children.some((child) => child.kind === "section")),
+  );
 
   const weaponDocument = await archive.readEquDocument(samplePaths.weaponStaff, "simplified");
   const emancipateSection = findTopLevelSection(weaponDocument, "emancipate");
@@ -111,12 +113,14 @@ test("round-trips representative .equ files through parse/stringify/parse", asyn
   const archive = new PvfArchive("Script.pvf", fixturePath);
   await archive.ensureLoaded();
 
-  for (const equPath of [
-    samplePaths.amulet,
-    samplePaths.title,
-    samplePaths.weaponStaff,
-    samplePaths.avatarCap,
-  ]) {
+  for (
+    const equPath of [
+      samplePaths.amulet,
+      samplePaths.title,
+      samplePaths.weaponStaff,
+      samplePaths.avatarCap,
+    ]
+  ) {
     const original = await archive.readEquDocument(equPath, "simplified");
     const reparsed = parseEquDocument(stringifyEquDocument(original));
     assert.deepEqual(reparsed, original, `Roundtrip mismatch for ${equPath}`);

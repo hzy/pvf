@@ -1,6 +1,7 @@
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import type { PvfArchive } from "./archive.ts";
 import {
   align4,
   createBuffKey,
@@ -20,7 +21,6 @@ import {
   type PvfOverlayFile,
   type TextProfile,
 } from "./types.ts";
-import type { PvfArchive } from "./archive.ts";
 
 export type WriteStrategy = "repack";
 
@@ -121,7 +121,9 @@ function toPreparedBaseEntry(entry: PvfFileRecord): PreparedEntry {
 }
 
 function buildFileTree(entries: readonly PreparedEntry[]): Buffer {
-  const totalLength = align4(entries.reduce((sum, entry) => sum + entry.fileNameBytes.length + 20, 0));
+  const totalLength = align4(
+    entries.reduce((sum, entry) => sum + entry.fileNameBytes.length + 20, 0),
+  );
   const output = Buffer.alloc(totalLength);
   let treeOffset = 0;
   let fileDataOffset = 0;
@@ -322,7 +324,9 @@ export async function writeArchive(
     normalizedOverlays.delete(entry.filePath);
 
     if (entry.filePath === "stringtable.bin") {
-      throw new Error("Overlays may not replace stringtable.bin directly; it is managed by the writer.");
+      throw new Error(
+        "Overlays may not replace stringtable.bin directly; it is managed by the writer.",
+      );
     }
 
     if (overlay.delete) {
@@ -336,14 +340,18 @@ export async function writeArchive(
 
   for (const overlay of normalizedOverlays.values()) {
     if (overlay.path === "stringtable.bin") {
-      throw new Error("Overlays may not replace stringtable.bin directly; it is managed by the writer.");
+      throw new Error(
+        "Overlays may not replace stringtable.bin directly; it is managed by the writer.",
+      );
     }
 
     if (overlay.delete) {
       continue;
     }
 
-    finalEntries.push(await materializeOverlayEntry(overlay, undefined, textProfile, getStringTable));
+    finalEntries.push(
+      await materializeOverlayEntry(overlay, undefined, textProfile, getStringTable),
+    );
     addedPaths.add(overlay.path);
   }
 
@@ -370,7 +378,13 @@ export async function writeArchive(
   const fileTreeChecksum = createBuffKey(fileTree, fileTree.length, finalEntries.length);
   const encryptedFileTree = encryptPvf(fileTree, fileTreeChecksum);
   const trailingBytes = await source.readTrailingBytes();
-  const bytes = buildOutputBytes(source, finalEntries, encryptedFileTree, fileTreeChecksum, trailingBytes);
+  const bytes = buildOutputBytes(
+    source,
+    finalEntries,
+    encryptedFileTree,
+    fileTreeChecksum,
+    trailingBytes,
+  );
 
   if (resolvedOutputPath) {
     await mkdir(path.dirname(resolvedOutputPath), { recursive: true });

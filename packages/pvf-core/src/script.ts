@@ -1,7 +1,4 @@
-import {
-  float32Buffer,
-  int32Buffer,
-} from "./codec.ts";
+import { float32Buffer, int32Buffer } from "./codec.ts";
 import { MutableStringTable } from "./string-table.ts";
 
 interface CompiledScriptToken {

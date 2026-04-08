@@ -1,10 +1,10 @@
+import { once } from "node:events";
 import { createWriteStream } from "node:fs";
 import { mkdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { Readable } from "node:stream";
 import { finished } from "node:stream/promises";
-import { once } from "node:events";
+import { fileURLToPath } from "node:url";
 import { createGunzip } from "node:zlib";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
@@ -13,9 +13,8 @@ const fixturesDir = path.resolve(
   workspaceRoot,
   process.env["PVF_FIXTURES_DIR"] ?? "fixtures",
 );
-const archiveUrl =
-  process.env["PVF_ARCHIVE_URL"] ??
-  "https://github.com/llnut/dnf/raw/refs/heads/main/build/dnf_data/home/template/init/Script.tgz";
+const archiveUrl = process.env["PVF_ARCHIVE_URL"]
+  ?? "https://github.com/llnut/dnf/raw/refs/heads/main/build/dnf_data/home/template/init/Script.tgz";
 const pvfPath = path.resolve(
   fixturesDir,
   process.env["PVF_OUTPUT_NAME"] ?? "Script.pvf",
@@ -89,8 +88,7 @@ async function downloadAndExtractArchive() {
       const chunk = Buffer.isBuffer(rawChunk)
         ? rawChunk
         : Buffer.from(rawChunk);
-      tarBuffer =
-        tarBuffer.length === 0 ? chunk : Buffer.concat([tarBuffer, chunk]);
+      tarBuffer = tarBuffer.length === 0 ? chunk : Buffer.concat([tarBuffer, chunk]);
 
       while (tarBuffer.length > 0) {
         if (remainingEntryBytes > 0) {
@@ -147,8 +145,8 @@ async function downloadAndExtractArchive() {
         remainingPaddingBytes = (512 - (entrySize % 512)) % 512;
 
         if (
-          !isRegularTarEntry(typeFlag) ||
-          path.posix.basename(fullName) !== targetBaseName
+          !isRegularTarEntry(typeFlag)
+          || path.posix.basename(fullName) !== targetBaseName
         ) {
           continue;
         }

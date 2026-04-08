@@ -384,26 +384,22 @@ function inferClosureMode(section: EquSectionSchema): EquSectionClosureMode {
 }
 
 function inferContentMode(section: EquSectionSchema): EquSectionContentMode {
-  const isEmptyOnly =
-    section.directChildShapes.empty > 0 &&
-    section.directChildShapes.mixed === 0 &&
-    section.directChildShapes.onlySections === 0 &&
-    section.directChildShapes.onlyStatements === 0;
-  const isMixedOnly =
-    section.directChildShapes.empty === 0 &&
-    section.directChildShapes.mixed > 0 &&
-    section.directChildShapes.onlySections === 0 &&
-    section.directChildShapes.onlyStatements === 0;
-  const isOnlySections =
-    section.directChildShapes.empty === 0 &&
-    section.directChildShapes.mixed === 0 &&
-    section.directChildShapes.onlySections > 0 &&
-    section.directChildShapes.onlyStatements === 0;
-  const isOnlyStatements =
-    section.directChildShapes.empty === 0 &&
-    section.directChildShapes.mixed === 0 &&
-    section.directChildShapes.onlySections === 0 &&
-    section.directChildShapes.onlyStatements > 0;
+  const isEmptyOnly = section.directChildShapes.empty > 0
+    && section.directChildShapes.mixed === 0
+    && section.directChildShapes.onlySections === 0
+    && section.directChildShapes.onlyStatements === 0;
+  const isMixedOnly = section.directChildShapes.empty === 0
+    && section.directChildShapes.mixed > 0
+    && section.directChildShapes.onlySections === 0
+    && section.directChildShapes.onlyStatements === 0;
+  const isOnlySections = section.directChildShapes.empty === 0
+    && section.directChildShapes.mixed === 0
+    && section.directChildShapes.onlySections > 0
+    && section.directChildShapes.onlyStatements === 0;
+  const isOnlyStatements = section.directChildShapes.empty === 0
+    && section.directChildShapes.mixed === 0
+    && section.directChildShapes.onlySections === 0
+    && section.directChildShapes.onlyStatements > 0;
 
   if (isEmptyOnly) {
     return "empty";
