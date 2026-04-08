@@ -26,6 +26,109 @@ pnpm test
 
 The local explorer starts at `http://127.0.0.1:4318`.
 
+## Mod Pipelines
+
+The repository now has a workspace-based mod pipeline system:
+
+- shared runtime and pipeline helpers live in `packages/pvf-mod`
+- individual mods live in `mods/*`
+- the pipeline registry lives in `mods/registry.ts`
+- named pipeline configs live in `mods/pipelines.ts`
+- the CLI entrypoint lives in `apps/pvf-mod-cli`
+
+### Built-in mods
+
+- `example_wild_strawberry_hp_up`: changes Wild Strawberry HP recovery from `60` to `600`
+- `2_3_choro_partset_skill_up`: generates the merged Choro support equipment overlays
+
+### Built-in pipelines
+
+- `wild-strawberry-only`: runs only the Wild Strawberry example mod
+- `demo`: runs `example_wild_strawberry_hp_up -> 2_3_choro_partset_skill_up`
+
+`demo` is the current default pipeline.
+
+### List available pipelines and mods
+
+```bash
+pnpm --filter pvf-mod-cli start list
+```
+
+### Build overlays to a directory
+
+This runs the selected pipeline in order, writes the final merged overlays to a directory, and emits a manifest JSON file.
+
+```bash
+pnpm --filter pvf-mod-cli start build --pipeline demo
+```
+
+By default this writes to `out/<pipeline-id>/` and writes `manifest.json` in that directory.
+
+Useful flags:
+
+- `--pipeline <id>`: choose a named pipeline from `mods/pipelines.ts`
+- `--archive <path>`: read from a different source PVF instead of `fixtures/Script.pvf`
+- `--out <dir>`: override the overlay output directory
+- `--manifest-out <path>`: override the manifest output path
+- `--text-profile simplified|traditional`: choose rendered text profile
+
+Example:
+
+```bash
+pnpm --filter pvf-mod-cli start build \
+  --pipeline wild-strawberry-only \
+  --out ./out/wild-strawberry \
+  --manifest-out ./out/wild-strawberry/manifest.json
+```
+
+### Apply a pipeline to produce a new PVF
+
+This runs the selected pipeline in order and writes a new PVF file with all overlays applied.
+
+```bash
+pnpm --filter pvf-mod-cli start apply --pipeline demo
+```
+
+By default this writes to `out/<pipeline-id>.pvf` and also writes `<output>.manifest.json`.
+
+Useful flags:
+
+- `--pipeline <id>`: choose a named pipeline
+- `--archive <path>`: input PVF path
+- `--pvf-out <path>`: output PVF path
+- `--manifest-out <path>`: manifest output path
+- `--text-profile simplified|traditional`: rendered text profile
+
+Example:
+
+```bash
+pnpm --filter pvf-mod-cli start apply \
+  --pipeline demo \
+  --pvf-out ./out/demo.pvf \
+  --manifest-out ./out/demo.manifest.json
+```
+
+### Build an ad-hoc pipeline from explicit mod order
+
+If you want to test a temporary sequence without editing `mods/pipelines.ts`, pass repeated `--mod` flags. The order of `--mod` flags is the execution order.
+
+```bash
+pnpm --filter pvf-mod-cli start build \
+  --pipeline adhoc-preview \
+  --mod example_wild_strawberry_hp_up \
+  --mod 2_3_choro_partset_skill_up
+```
+
+### Adding a new mod
+
+1. Create a new folder in `mods/<your_mod>/`.
+2. Export a `PvfRegisteredMod` from `src/index.ts`.
+3. Keep the mod focused on patch logic only. Do not put standalone CLI or manifest writing logic in the mod package.
+4. Add the mod to `mods/registry.ts`.
+5. Add it to a named pipeline in `mods/pipelines.ts`, or run it ad hoc with repeated `--mod`.
+
+The runtime guarantees that mods run sequentially, and mod `n + 1` reads the merged final result produced by mods `1..n`.
+
 ## Contributing
 
 ### Install once

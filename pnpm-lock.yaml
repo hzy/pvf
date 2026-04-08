@@ -7,6 +7,10 @@ settings:
 importers:
 
   .:
+    dependencies:
+      '@pvf/pvf-mod':
+        specifier: workspace:*
+        version: link:packages/pvf-mod
     devDependencies:
       '@eslint/js':
         specifier: ^9.25.1
@@ -68,6 +72,34 @@ importers:
       '@pvf/equ-ast':
         specifier: workspace:*
         version: link:../../packages/equ-ast
+      '@pvf/pvf-core':
+        specifier: workspace:*
+        version: link:../../packages/pvf-core
+    devDependencies:
+      '@tsconfig/node24':
+        specifier: ^24.0.0
+        version: 24.0.4
+      '@tsconfig/strictest':
+        specifier: ^2.0.5
+        version: 2.0.8
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.12.2
+      typescript:
+        specifier: ^6.0.2
+        version: 6.0.2
+
+  apps/pvf-mod-cli:
+    dependencies:
+      '@pvf/pvf-core':
+        specifier: workspace:*
+        version: link:../../packages/pvf-core
+      '@pvf/pvf-mod':
+        specifier: workspace:*
+        version: link:../../packages/pvf-mod
+      commander:
+        specifier: ^14.0.3
+        version: 14.0.3
     devDependencies:
       '@tsconfig/node24':
         specifier: ^24.0.0
@@ -87,6 +119,37 @@ importers:
       '@pvf/equ-ast':
         specifier: workspace:*
         version: link:../../packages/equ-ast
+      '@pvf/pvf-core':
+        specifier: workspace:*
+        version: link:../../packages/pvf-core
+      '@pvf/pvf-mod':
+        specifier: workspace:*
+        version: link:../../packages/pvf-mod
+    devDependencies:
+      '@tsconfig/node24':
+        specifier: ^24.0.0
+        version: 24.0.4
+      '@tsconfig/strictest':
+        specifier: ^2.0.5
+        version: 2.0.8
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.12.2
+      typescript:
+        specifier: ^6.0.2
+        version: 6.0.2
+
+  mods/example_wild_strawberry_hp_up:
+    dependencies:
+      '@pvf/equ-ast':
+        specifier: workspace:*
+        version: link:../../packages/equ-ast
+      '@pvf/pvf-core':
+        specifier: workspace:*
+        version: link:../../packages/pvf-core
+      '@pvf/pvf-mod':
+        specifier: workspace:*
+        version: link:../../packages/pvf-mod
     devDependencies:
       '@tsconfig/node24':
         specifier: ^24.0.0
@@ -140,6 +203,28 @@ importers:
       iconv-lite:
         specifier: ^0.6.3
         version: 0.6.3
+    devDependencies:
+      '@tsconfig/node24':
+        specifier: ^24.0.0
+        version: 24.0.4
+      '@tsconfig/strictest':
+        specifier: ^2.0.5
+        version: 2.0.8
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.12.2
+      typescript:
+        specifier: ^6.0.2
+        version: 6.0.2
+
+  packages/pvf-mod:
+    dependencies:
+      '@pvf/equ-ast':
+        specifier: workspace:*
+        version: link:../equ-ast
+      '@pvf/pvf-core':
+        specifier: workspace:*
+        version: link:../pvf-core
     devDependencies:
       '@tsconfig/node24':
         specifier: ^24.0.0

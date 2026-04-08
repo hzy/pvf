@@ -1,23 +1,21 @@
 {
-  "name": "@pvf-mods/2_3_choro_partset_skill_up",
+  "name": "pvf-mod-cli",
   "private": true,
   "type": "module",
   "scripts": {
     "check": "tsc --noEmit -p tsconfig.json",
+    "start": "node src/cli.ts",
     "test": "node --test --test-concurrency=1 src/**/*.test.ts"
   },
   "dependencies": {
-    "@pvf/equ-ast": "workspace:*",
     "@pvf/pvf-core": "workspace:*",
-    "@pvf/pvf-mod": "workspace:*"
+    "@pvf/pvf-mod": "workspace:*",
+    "commander": "^14.0.3"
   },
   "devDependencies": {
     "@tsconfig/node24": "^24.0.0",
     "@tsconfig/strictest": "^2.0.5",
     "@types/node": "^24.0.0",
     "typescript": "^6.0.2"
-  },
-  "engines": {
-    "node": ">=24"
   }
 }
