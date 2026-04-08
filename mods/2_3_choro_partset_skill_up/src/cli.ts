@@ -1,9 +1,9 @@
 import { resolve } from "node:path";
 
 import {
+  applyChoroPartsetSkillUpMod,
   DEFAULT_ARCHIVE_PATH,
   DEFAULT_OUTPUT_DIR,
-  applyChoroPartsetSkillUpMod,
   generateChoroPartsetSkillUpMod,
 } from "./index.ts";
 

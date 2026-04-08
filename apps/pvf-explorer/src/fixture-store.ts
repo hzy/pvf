@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 import { readdir } from "node:fs/promises";
 import path from "node:path";
 
-import { PvfArchive } from "./pvf.ts";
 import type { TextProfile } from "../../../packages/pvf-core/src/index.ts";
+import { PvfArchive } from "./pvf.ts";
 
 export interface ArchiveSummary {
   id: string;

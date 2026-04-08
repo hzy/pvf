@@ -108,37 +108,11 @@ export default tseslint.config(
       "import/no-cycle": "error",
       "import/first": "error",
       "import/newline-after-import": "error",
-      "import/order": [
-        "error",
-        {
-          groups: [
-            "builtin", // Built-in imports (come from NodeJS native) go first
-            "external", // <- External imports
-            "internal", // <- Absolute imports
-            ["sibling", "parent"], // <- Relative imports, the sibling and parent types they can be mingled together
-            "index", // <- index imports
-            "unknown", // <- unknown
-          ],
-          "newlines-between": "always",
-          alphabetize: {
-            /* sort in ascending order. Options: ["ignore", "asc", "desc"] */
-            order: "asc",
-            /* ignore case. Options: [true, false] */
-            caseInsensitive: true,
-          },
-        },
-      ],
+      // dprint already owns import declaration/member ordering. Keep ESLint focused on
+      // correctness-oriented import rules so the two tools don't fight in CI.
+      "import/order": "off",
       "import/consistent-type-specifier-style": "warn",
-      "sort-imports": [
-        "error",
-        {
-          ignoreCase: false,
-          ignoreDeclarationSort: true, // don't want to sort import lines, use eslint-plugin-import instead
-          ignoreMemberSort: false,
-          memberSyntaxSortOrder: ["none", "all", "multiple", "single"],
-          allowSeparatedGroups: true,
-        },
-      ],
+      "sort-imports": "off",
     },
   },
   {

@@ -1,11 +1,11 @@
-import { parseEquDocument } from "./equ.ts";
-import type { EquDocument } from "./equ.ts";
 import {
-  PvfArchive as CorePvfArchive,
   DEFAULT_TEXT_PROFILE,
   isStructuredScriptChunk,
+  PvfArchive as CorePvfArchive,
 } from "../../../packages/pvf-core/src/index.ts";
 import type { TextProfile } from "../../../packages/pvf-core/src/index.ts";
+import { parseEquDocument } from "./equ.ts";
+import type { EquDocument } from "./equ.ts";
 
 export {
   DEFAULT_TEXT_PROFILE,
