@@ -3,18 +3,18 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  parseEquDocument,
   createCommandToken,
   createIdentifierToken,
-  createStatement,
-  createSection,
   createIntToken,
+  createSection,
+  createStatement,
   createStringToken,
-  stringifyEquDocument,
   type EquDocument,
   type EquNode,
   type EquSectionNode,
   type EquStatementNode,
+  parseEquDocument,
+  stringifyEquDocument,
 } from "@pvf/equ-ast";
 
 import {
@@ -157,9 +157,7 @@ function getFirstSection(
 }
 
 function getStatementInts(statement: EquStatementNode): number[] {
-  return statement.tokens.flatMap((token) =>
-    token.kind === "int" ? [token.value] : [],
-  );
+  return statement.tokens.flatMap((token) => token.kind === "int" ? [token.value] : []);
 }
 
 function getFirstSectionInt(
@@ -187,10 +185,10 @@ function getFirstSectionString(
 
 function isJobMarkerStatement(statement: EquStatementNode): boolean {
   return (
-    statement.tokens.length === 1 &&
-    statement.tokens[0]?.kind === "string" &&
-    statement.tokens[0].value.startsWith("[") &&
-    statement.tokens[0].value.endsWith("]")
+    statement.tokens.length === 1
+    && statement.tokens[0]?.kind === "string"
+    && statement.tokens[0].value.startsWith("[")
+    && statement.tokens[0].value.endsWith("]")
   );
 }
 
@@ -200,10 +198,10 @@ function extractTrailingJobMarker(
   const lastToken = statement.tokens.at(-1);
 
   if (
-    statement.tokens.length < 2 ||
-    lastToken?.kind !== "string" ||
-    !lastToken.value.startsWith("[") ||
-    !lastToken.value.endsWith("]")
+    statement.tokens.length < 2
+    || lastToken?.kind !== "string"
+    || !lastToken.value.startsWith("[")
+    || !lastToken.value.endsWith("]")
   ) {
     return undefined;
   }
@@ -249,14 +247,14 @@ function extractCategoryNames(document: EquDocument): Map<string, string> {
 
   const headerPairs = getSections(document.children, "booster select category")
     .map((categorySection) =>
-      getStatementInts(categorySection.children.find(isStatement) ?? {
-        kind: "statement",
-        tokens: [],
-      }),
+      getStatementInts(
+        categorySection.children.find(isStatement) ?? {
+          kind: "statement",
+          tokens: [],
+        },
+      )
     )
-    .filter((pair): pair is [number, number] =>
-      pair[0] !== undefined && pair[1] !== undefined,
-    );
+    .filter((pair): pair is [number, number] => pair[0] !== undefined && pair[1] !== undefined);
   const majorCategories = [...new Set(headerPairs.map(([majorCategory]) => majorCategory))]
     .sort((left, right) => left - right);
   const minorCount = headerPairs.reduce(
@@ -267,8 +265,8 @@ function extractCategoryNames(document: EquDocument): Map<string, string> {
     .filter(isStatement)
     .flatMap((statement) =>
       statement.tokens.flatMap((token) =>
-        token.kind === "string" || token.kind === "link" ? [token.value] : [],
-      ),
+        token.kind === "string" || token.kind === "link" ? [token.value] : []
+      )
     );
   const transferIndex = categoryValues.indexOf("请选择转职");
 
@@ -426,9 +424,11 @@ async function findAiCharacterByName(
     textProfile,
   );
 
-  for (const [aicId, aicPath] of [...pathById.entries()].sort(
-    (left, right) => left[0] - right[0],
-  )) {
+  for (
+    const [aicId, aicPath] of [...pathById.entries()].sort(
+      (left, right) => left[0] - right[0],
+    )
+  ) {
     const document = await readEquDocument(archive, aicPath, textProfile);
     const minimumInfoName = getFirstSectionString(document.children, "minimum info")?.trim();
 
@@ -602,10 +602,10 @@ function extractSkillEntryBlocks(
     const fourthStatement = blockStatements[3];
 
     if (
-      !firstStatement ||
-      !secondStatement ||
-      !thirdStatement ||
-      !fourthStatement
+      !firstStatement
+      || !secondStatement
+      || !thirdStatement
+      || !fourthStatement
     ) {
       throw new Error(
         `Incomplete skill data up block in ${sourcePartsetPath} piece ${pieceCount}.`,
@@ -656,10 +656,12 @@ async function loadSkillEntryBlocksByPartset(
     const blocks: SkillEntryBlock[] = [];
 
     for (const section of getSections(document.children, "piece set ability")) {
-      const pieceCount = getStatementInts(section.children.find(isStatement) ?? {
-        kind: "statement",
-        tokens: [],
-      }).at(0);
+      const pieceCount = getStatementInts(
+        section.children.find(isStatement) ?? {
+          kind: "statement",
+          tokens: [],
+        },
+      ).at(0);
 
       if (!pieceCount || !TARGET_PIECE_COUNTS.has(pieceCount)) {
         continue;
@@ -689,7 +691,7 @@ async function loadPartsetNameByPath(
     const document = await readEquDocument(archive, partsetPath, textProfile);
     const name = (
       getFirstSectionString(document.children, "set name")
-      ?? getFirstSectionString(document.children, "name")
+        ?? getFirstSectionString(document.children, "name")
     )?.trim();
 
     if (name) {
@@ -735,8 +737,8 @@ function replaceTopLevelSkillDataUp(
   );
   const insertIndex = nextChildren.findIndex(
     (node) =>
-      isSection(node) &&
-      (node.name === "possible kiri protect" || node.name === "icon mark"),
+      isSection(node)
+      && (node.name === "possible kiri protect" || node.name === "icon mark"),
   );
   const safeInsertIndex = insertIndex === -1 ? nextChildren.length : insertIndex;
 
@@ -748,7 +750,10 @@ function replaceTopLevelSkillDataUp(
   };
 }
 
-function buildExplainText(sourcePartsets: readonly string[], partsetNameByPath: Map<string, string>): string {
+function buildExplainText(
+  sourcePartsets: readonly string[],
+  partsetNameByPath: Map<string, string>,
+): string {
   const seen = new Set<string>();
   const lines = [SUPPORT_SUMMON_EXPLAIN, EXPLAIN_HEADING];
 
@@ -946,8 +951,7 @@ function updateListedPathDocument(
       } => entry !== undefined,
     )
     .filter(
-      (entry) =>
-        !overridesById.has(entry.id) && !overridePaths.has(entry.relativePath),
+      (entry) => !overridesById.has(entry.id) && !overridePaths.has(entry.relativePath),
     );
 
   for (const file of files) {
@@ -966,7 +970,7 @@ function updateListedPathDocument(
         entry.id,
         `${rootPath}/${entry.relativePath}`,
         rootPath,
-      ),
+      )
     ),
   };
 }
@@ -1068,7 +1072,6 @@ async function buildChoroPartsetSkillUpModFromArchive(
     "aicharacter",
     textProfile,
   );
-  aiCharacterListPathById;
   const aiCharacterListDocument = parseEquDocument(
     await archive.readRenderedFile(AI_CHARACTER_LIST_PATH, textProfile),
   );
@@ -1125,9 +1128,11 @@ async function buildChoroPartsetSkillUpModFromArchive(
     mode: "script",
   });
 
-  for (const [className, supportPaths] of [...supportPathsByClass].sort((left, right) =>
-    comparePaths(left[1]?.[0] ?? "", right[1]?.[0] ?? ""),
-  )) {
+  for (
+    const [className, supportPaths] of [...supportPathsByClass].sort((left, right) =>
+      comparePaths(left[1]?.[0] ?? "", right[1]?.[0] ?? "")
+    )
+  ) {
     const sourcePartsets = classPartsets.get(className) ?? [];
 
     if (sourcePartsets.length === 0) {
@@ -1335,8 +1340,4 @@ export async function readGeneratedManifest(
   return JSON.parse(content) as GeneratedChoroPartsetSkillUpManifest;
 }
 
-export {
-  DEFAULT_ARCHIVE_PATH,
-  DEFAULT_OUTPUT_DIR,
-  STACKABLE_PATHS,
-};
+export { DEFAULT_ARCHIVE_PATH, DEFAULT_OUTPUT_DIR, STACKABLE_PATHS };

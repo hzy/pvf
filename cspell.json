@@ -1,0 +1,35 @@
+{
+  "version": "0.2",
+  "useGitignore": true,
+  "ignorePaths": [
+    "coverage",
+    "dist",
+    "fixtures",
+    "node_modules",
+    "pnpm-lock.yaml"
+  ],
+  "files": [
+    "**/*.{ts,js,mjs,cjs,json,jsonc,md,html,css,yml,yaml}"
+  ],
+  "words": [
+    "aicharacter",
+    "ahat",
+    "bestfriend",
+    "COOLDOWN",
+    "choro",
+    "choroset",
+    "cooltime",
+    "equipmentpartset",
+    "jojochan",
+    "kiri",
+    "malva",
+    "partset",
+    "Partset",
+    "Partsets",
+    "reparsed",
+    "soldoros",
+    "stringtable",
+    "stackable",
+    "upperset"
+  ]
+}

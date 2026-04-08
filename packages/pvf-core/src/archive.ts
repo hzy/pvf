@@ -12,7 +12,6 @@ import {
   toDataView,
 } from "./codec.ts";
 import { LazyStringTable } from "./string-table.ts";
-import { writeArchive, type PvfWriteOptions, type PvfWriteResult } from "./writer.ts";
 import {
   DEFAULT_TEXT_PROFILE,
   type DirectoryItem,
@@ -20,6 +19,7 @@ import {
   type PvfHeader,
   type TextProfile,
 } from "./types.ts";
+import { type PvfWriteOptions, type PvfWriteResult, writeArchive } from "./writer.ts";
 
 const HEADER_TAIL_SIZE = 16;
 const ROOT_PATH = "";
@@ -131,7 +131,9 @@ export class PvfArchive {
     return writeArchive(this, options);
   }
 
-  async overwrite(options: Omit<PvfWriteOptions, "outputPath"> & { outputPath?: string }): Promise<PvfWriteResult> {
+  async overwrite(
+    options: Omit<PvfWriteOptions, "outputPath"> & { outputPath?: string },
+  ): Promise<PvfWriteResult> {
     const result = await this.write({
       ...options,
       outputPath: options.outputPath ?? this.filePath,
@@ -272,7 +274,7 @@ export class PvfArchive {
         fileCrc32,
         relativeOffset,
         absoluteOffset: this.header.headerSize + this.header.dirTreeLength + relativeOffset,
-        alignedLength: ((fileLength + 3) & ~3),
+        alignedLength: (fileLength + 3) & ~3,
       };
 
       this.#entriesByPath.set(filePath, record);
@@ -409,15 +411,14 @@ export class PvfArchive {
 
       if (kind === 10) {
         const key = textResources.stringTable.get(value);
-        const resolved =
-          pendingLinkIndex === null
-            ? ""
-            : await this.#resolveNStringValue(
-              pendingLinkIndex,
-              key,
-              textResources.stringTable.textProfile,
-              textResources,
-            );
+        const resolved = pendingLinkIndex === null
+          ? ""
+          : await this.#resolveNStringValue(
+            pendingLinkIndex,
+            key,
+            textResources.stringTable.textProfile,
+            textResources,
+          );
         chunks.push(`<${pendingLinkIndex ?? 0}::${key}\`${resolved}\`>\r\n`);
         pendingLinkIndex = null;
         continue;

@@ -2,18 +2,51 @@
   "name": "pvf-parser-workspace",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@10.33.0+sha512.10568bb4a6afb58c9eb3630da90cc9516417abebd3fabbe6739f0ae795728da1491e9db5a544c76ad8eb7570f5c4bb3d6c637b2cb41bfdcdb47fa823c8649319",
   "scripts": {
-    "prepare": "node --use-env-proxy scripts/prepare-fixtures.mjs",
-    "dev": "pnpm --filter pvf-explorer dev",
     "bench": "pnpm --filter pvf-explorer bench",
-    "check": "pnpm -r --if-present check",
-    "test": "pnpm -r --if-present test"
+    "check": "pnpm lint && pnpm format:check && pnpm spellcheck && pnpm typecheck",
+    "dev": "pnpm --filter pvf-explorer dev",
+    "format": "dprint fmt",
+    "format:check": "dprint check",
+    "postinstall": "husky",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "prepare": "pnpm prepare:fixtures",
+    "prepare:fixtures": "node --use-env-proxy scripts/prepare-fixtures.mjs",
+    "spellcheck": "cspell lint --no-progress .",
+    "test": "pnpm -r --if-present test",
+    "typecheck": "pnpm -r --if-present check"
   },
+  "lint-staged": {
+    "*.{ts,js,mjs,cjs}": [
+      "eslint --fix",
+      "dprint fmt"
+    ],
+    "!(package).json": [
+      "dprint fmt"
+    ],
+    "*.{jsonc,md,html,css,yml,yaml}": [
+      "dprint fmt"
+    ],
+    "package.json": [
+      "sort-package-json",
+      "dprint fmt"
+    ]
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.25.1",
+    "@types/node": "^24.0.0",
+    "cspell": "^9.2.1",
+    "dprint": "^0.53.2",
+    "eslint": "^9.25.1",
+    "globals": "^16.0.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.1.2",
+    "sort-package-json": "^3.4.0",
+    "typescript-eslint": "^8.30.1"
+  },
+  "packageManager": "pnpm@10.33.0+sha512.10568bb4a6afb58c9eb3630da90cc9516417abebd3fabbe6739f0ae795728da1491e9db5a544c76ad8eb7570f5c4bb3d6c637b2cb41bfdcdb47fa823c8649319",
   "engines": {
     "node": ">=24"
-  },
-  "dependencies": {
-    "@types/node": "^24.0.0"
   }
 }

@@ -132,7 +132,9 @@ async function closeActiveSession() {
 }
 
 function closeActiveSessionWithBeacon() {
-  if (!state.activeSessionId || !state.activeArchive || typeof navigator.sendBeacon !== "function") {
+  if (
+    !state.activeSessionId || !state.activeArchive || typeof navigator.sendBeacon !== "function"
+  ) {
     return;
   }
 
@@ -207,7 +209,9 @@ async function loadDirectory(details, treePath) {
 
   try {
     const { children } = await fetchJson(
-      `/api/tree?archive=${encodeURIComponent(state.activeArchive)}&path=${encodeURIComponent(treePath)}`,
+      `/api/tree?archive=${encodeURIComponent(state.activeArchive)}&path=${
+        encodeURIComponent(treePath)
+      }`,
     );
 
     childContainer.textContent = "";
@@ -256,7 +260,7 @@ async function openFile(button, selectedPath) {
 }
 
 async function openDefaultPreview() {
-  const equipmentNode = treeRoot.querySelector('details[data-path="equipment"]');
+  const equipmentNode = treeRoot.querySelector("details[data-path=\"equipment\"]");
 
   if (!equipmentNode) {
     return;
@@ -265,7 +269,9 @@ async function openDefaultPreview() {
   equipmentNode.open = true;
   await loadDirectory(equipmentNode, "equipment");
 
-  const defaultFileButton = equipmentNode.querySelector('button[data-path="equipment/equipment.lst"]');
+  const defaultFileButton = equipmentNode.querySelector(
+    "button[data-path=\"equipment/equipment.lst\"]",
+  );
 
   if (defaultFileButton) {
     await openFile(defaultFileButton, "equipment/equipment.lst");
@@ -285,7 +291,9 @@ async function loadArchive(archiveId) {
 
   renderChildren(treeRoot, children);
   setStatus(
-    `${archiveId} 已加载，共 ${fileCount.toLocaleString("zh-CN")} 个文件，文本：${textProfileLabels[state.activeTextProfile]}`,
+    `${archiveId} 已加载，共 ${fileCount.toLocaleString("zh-CN")} 个文件，文本：${
+      textProfileLabels[state.activeTextProfile]
+    }`,
   );
   await openDefaultPreview();
 }

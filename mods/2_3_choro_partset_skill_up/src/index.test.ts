@@ -14,22 +14,15 @@ import {
   generateChoroPartsetSkillUpMod,
 } from "./index.ts";
 
-const TARGET_SWORDMAN_SUPPORT_PATH =
-  "equipment/character/common/support/support_3choro65.equ";
-const TARGET_SWORDMAN_OUTPUT_PATH =
-  "equipment/character/common/support/support_440453.equ";
-const TARGET_EXORCIST_SUPPORT_PATH =
-  "equipment/character/common/support/support_3choro83.equ";
-const TARGET_EXORCIST_OUTPUT_PATH =
-  "equipment/character/common/support/support_440471.equ";
-const TARGET_AVENGER_SUPPORT_PATH =
-  "equipment/character/common/support/support_3choro84.equ";
-const TARGET_AVENGER_OUTPUT_PATH =
-  "equipment/character/common/support/support_440472.equ";
+const TARGET_SWORDMAN_SUPPORT_PATH = "equipment/character/common/support/support_3choro65.equ";
+const TARGET_SWORDMAN_OUTPUT_PATH = "equipment/character/common/support/support_440453.equ";
+const TARGET_EXORCIST_SUPPORT_PATH = "equipment/character/common/support/support_3choro83.equ";
+const TARGET_EXORCIST_OUTPUT_PATH = "equipment/character/common/support/support_440471.equ";
+const TARGET_AVENGER_SUPPORT_PATH = "equipment/character/common/support/support_3choro84.equ";
+const TARGET_AVENGER_OUTPUT_PATH = "equipment/character/common/support/support_440472.equ";
 const EQUIPMENT_LIST_PATH = "equipment/equipment.lst";
 const AI_CHARACTER_LIST_PATH = "aicharacter/aicharacter.lst";
-const TARGET_SUMMON_APC_PATH =
-  "aicharacter/_jojochan/swordman/soldoros/soldoros_doll.aic";
+const TARGET_SUMMON_APC_PATH = "aicharacter/_jojochan/swordman/soldoros/soldoros_doll.aic";
 const TARGET_SUMMON_APC_ID = 1520;
 const EXPECTED_FILE_COUNT = 24;
 const EXPECTED_OVERLAY_COUNT = EXPECTED_FILE_COUNT + 3;

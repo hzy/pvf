@@ -1,8 +1,4 @@
-import {
-  decodeText,
-  encodeText,
-  toDataView,
-} from "./codec.ts";
+import { decodeText, encodeText, toDataView } from "./codec.ts";
 import type { TextProfile } from "./types.ts";
 
 export class LazyStringTable {

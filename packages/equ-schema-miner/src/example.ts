@@ -1,10 +1,6 @@
 import { parseEquDocument } from "@pvf/equ-ast";
 
-import {
-  getEquSectionSchema,
-  inferEquSectionConstraint,
-  mineEquSchema,
-} from "./index.ts";
+import { getEquSectionSchema, inferEquSectionConstraint, mineEquSchema } from "./index.ts";
 
 const sampleDocuments = [
   {

@@ -1,6 +1,6 @@
+import { stringifyEquDocument, visitEqu } from "./equ.ts";
 import { expectedStrings, fixturePath, samplePaths } from "./pvf.fixture.ts";
 import { PvfArchive } from "./pvf.ts";
-import { stringifyEquDocument, visitEqu } from "./equ.ts";
 
 async function main(): Promise<void> {
   const archive = new PvfArchive("Script.pvf", fixturePath);

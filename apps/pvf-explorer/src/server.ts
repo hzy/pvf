@@ -1,5 +1,5 @@
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { readFile } from "node:fs/promises";
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -109,7 +109,9 @@ async function handleApiRequest(
     if (request.method === "POST") {
       const payload = await readJsonBody(request);
       const filePath = typeof payload["path"] === "string" ? payload["path"] : "";
-      const textProfile = parseTextProfile(typeof payload["textProfile"] === "string" ? payload["textProfile"] : null);
+      const textProfile = parseTextProfile(
+        typeof payload["textProfile"] === "string" ? payload["textProfile"] : null,
+      );
 
       if (!filePath) {
         sendJson(response, 400, { error: "Missing path in request body." });
@@ -203,8 +205,7 @@ async function handleStaticRequest(
   requestUrl: URL,
   response: ServerResponse,
 ): Promise<void> {
-  const relativePath =
-    requestUrl.pathname === "/" ? "index.html" : requestUrl.pathname.slice(1);
+  const relativePath = requestUrl.pathname === "/" ? "index.html" : requestUrl.pathname.slice(1);
   const filePath = path.resolve(publicDir, relativePath);
 
   if (!filePath.startsWith(publicDir)) {
@@ -227,8 +228,7 @@ const server = createServer(async (request, response) => {
 
     await handleStaticRequest(requestUrl, response);
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unknown server error.";
+    const message = error instanceof Error ? error.message : "Unknown server error.";
     sendJson(response, getErrorStatus(error), { error: message });
   }
 });

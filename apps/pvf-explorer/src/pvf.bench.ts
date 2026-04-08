@@ -27,13 +27,19 @@ function formatMiB(value: number): string {
 function printMemorySnapshot(label: string): void {
   const usage = process.memoryUsage();
   console.log(
-    `${label.padEnd(28)} rss=${formatMiB(usage.rss).padStart(10)} heapUsed=${formatMiB(usage.heapUsed).padStart(10)}`,
+    `${label.padEnd(28)} rss=${formatMiB(usage.rss).padStart(10)} heapUsed=${
+      formatMiB(usage.heapUsed).padStart(10)
+    }`,
   );
 }
 
 function printResult(result: BenchmarkResult): void {
   console.log(
-    `${result.name.padEnd(32)} iterations=${String(result.iterations).padStart(5)}  total=${formatMs(result.totalMs).padStart(10)}  avg=${formatMs(result.averageMs).padStart(10)}  min=${formatMs(result.minMs).padStart(10)}  max=${formatMs(result.maxMs).padStart(10)}`,
+    `${result.name.padEnd(32)} iterations=${String(result.iterations).padStart(5)}  total=${
+      formatMs(result.totalMs).padStart(10)
+    }  avg=${formatMs(result.averageMs).padStart(10)}  min=${
+      formatMs(result.minMs).padStart(10)
+    }  max=${formatMs(result.maxMs).padStart(10)}`,
   );
 }
 
@@ -125,21 +131,33 @@ async function benchmarkWarmOperations(): Promise<BenchmarkResult[]> {
 
   printMemorySnapshot("after text resources");
 
-  const repeatedAmulet = await runAsyncBenchmark("warm render amulet", renderIterations, async () => {
-    await archive.readRenderedFile(samplePaths.amulet, "simplified");
-  });
+  const repeatedAmulet = await runAsyncBenchmark(
+    "warm render amulet",
+    renderIterations,
+    async () => {
+      await archive.readRenderedFile(samplePaths.amulet, "simplified");
+    },
+  );
 
-  const repeatedList = await runAsyncBenchmark("warm render equipment.lst", renderIterations, async () => {
-    await archive.readRenderedFile(samplePaths.equipmentList, "simplified");
-  });
+  const repeatedList = await runAsyncBenchmark(
+    "warm render equipment.lst",
+    renderIterations,
+    async () => {
+      await archive.readRenderedFile(samplePaths.equipmentList, "simplified");
+    },
+  );
 
   const listRoot = await runSyncBenchmark("listDirectory(\"\")", listIterations, () => {
     archive.listDirectory("");
   });
 
-  const listNested = await runSyncBenchmark(`listDirectory("${samplePaths.nestedDirectory}")`, listIterations, () => {
-    archive.listDirectory(samplePaths.nestedDirectory);
-  });
+  const listNested = await runSyncBenchmark(
+    `listDirectory("${samplePaths.nestedDirectory}")`,
+    listIterations,
+    () => {
+      archive.listDirectory(samplePaths.nestedDirectory);
+    },
+  );
 
   await archive.close();
   return [firstRender, repeatedAmulet, repeatedList, listRoot, listNested];

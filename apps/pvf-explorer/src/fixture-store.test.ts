@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { fixturePath, samplePaths } from "./pvf.fixture.ts";
 import { FixtureStore } from "./fixture-store.ts";
+import { fixturePath, samplePaths } from "./pvf.fixture.ts";
 import { PvfArchive } from "./pvf.ts";
 
 test("FixtureStore opens editable files as script edit sessions and saves them in place", async () => {
