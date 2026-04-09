@@ -475,7 +475,26 @@ export async function loadSupportPathsByClass(
 export async function findAiCharacterByName(
   session: PvfModSession,
   targetName: string,
+  options: {
+    pathIncludes?: string;
+  } = {},
 ): Promise<ListedPathEntry> {
+  const found = await tryFindAiCharacterByName(session, targetName, options);
+
+  if (found) {
+    return found;
+  }
+
+  throw new Error(`Unable to find APC id for ${targetName}.`);
+}
+
+export async function tryFindAiCharacterByName(
+  session: PvfModSession,
+  targetName: string,
+  options: {
+    pathIncludes?: string;
+  } = {},
+): Promise<ListedPathEntry | undefined> {
   const pathById = await loadListedPathById(
     session,
     AI_CHARACTER_LIST_PATH,
@@ -488,6 +507,10 @@ export async function findAiCharacterByName(
       (left, right) => left[0] - right[0],
     )
   ) {
+    if (options.pathIncludes && !aicPath.includes(options.pathIncludes)) {
+      continue;
+    }
+
     const document = await readEquDocument(session, aicPath, session.textProfile);
     const minimumInfoName = getFirstSectionString(document.children, "minimum info")?.trim();
 
@@ -499,7 +522,7 @@ export async function findAiCharacterByName(
     }
   }
 
-  throw new Error(`Unable to find APC id for ${targetName}.`);
+  return undefined;
 }
 
 export { findNextAvailableListedPathId };

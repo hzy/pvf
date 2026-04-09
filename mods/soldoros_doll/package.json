@@ -1,0 +1,23 @@
+{
+  "name": "@pvf-mods/soldoros_doll",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json",
+    "test": "node --test --test-concurrency=1 src/**/*.test.ts"
+  },
+  "dependencies": {
+    "@pvf/equ-ast": "workspace:*",
+    "@pvf/pvf-core": "workspace:*",
+    "@pvf/pvf-mod": "workspace:*"
+  },
+  "devDependencies": {
+    "@tsconfig/node24": "^24.0.0",
+    "@tsconfig/strictest": "^2.0.5",
+    "@types/node": "^24.0.0",
+    "typescript": "^6.0.2"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

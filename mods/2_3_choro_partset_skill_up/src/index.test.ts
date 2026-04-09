@@ -6,12 +6,31 @@ import test from "node:test";
 
 import { parseEquDocument } from "@pvf/equ-ast";
 import { PvfArchive } from "@pvf/pvf-core";
-import { applyPvfPipeline, buildPvfPipeline, createPvfModRegistry } from "@pvf/pvf-mod";
+import {
+  applyPvfPipeline,
+  buildPvfPipeline,
+  createPvfModRegistry,
+  runPvfMods,
+  updateListedPathDocument,
+} from "@pvf/pvf-mod";
+import type { PvfMod } from "@pvf/pvf-mod";
 
-import { CHORO_PARTSET_SKILL_UP_MOD_ID, choroPartsetSkillUpModDefinition } from "./index.ts";
+import { AI_CHARACTER_LIST_PATH } from "./constants.ts";
+import {
+  CHORO_PARTSET_SKILL_UP_MOD_ID,
+  choroPartsetSkillUpModDefinition,
+  createChoroPartsetSkillUpMod,
+} from "./index.ts";
 import type { ChoroPartsetSkillUpModSummary } from "./index.ts";
+import {
+  SOLDOROS_DOLL_MOD_ID,
+  buildSupportSummonDollDocument,
+  soldorosDollModDefinition,
+} from "../../soldoros_doll/src/index.ts";
+import type { SoldorosDollModSummary } from "../../soldoros_doll/src/index.ts";
 
 const FIXTURE_ARCHIVE_PATH = new URL("../../../fixtures/Script.pvf", import.meta.url).pathname;
+const SOURCE_SUMMON_APC_PATH = "aicharacter/_jojochan/swordman/soldoros/soldoros.aic";
 const TARGET_SWORDMAN_SUPPORT_PATH = "equipment/character/common/support/support_3choro65.equ";
 const TARGET_SWORDMAN_OUTPUT_PATH = "equipment/character/common/support/support_440453.equ";
 const TARGET_EXORCIST_SUPPORT_PATH = "equipment/character/common/support/support_3choro83.equ";
@@ -19,18 +38,56 @@ const TARGET_EXORCIST_OUTPUT_PATH = "equipment/character/common/support/support_
 const TARGET_AVENGER_SUPPORT_PATH = "equipment/character/common/support/support_3choro84.equ";
 const TARGET_AVENGER_OUTPUT_PATH = "equipment/character/common/support/support_440472.equ";
 const EQUIPMENT_LIST_PATH = "equipment/equipment.lst";
-const AI_CHARACTER_LIST_PATH = "aicharacter/aicharacter.lst";
 const TARGET_SUMMON_APC_PATH = "aicharacter/_jojochan/swordman/soldoros/soldoros_doll.aic";
 const TARGET_SUMMON_APC_ID = 1520;
+const CUSTOM_SUMMON_APC_PATH = "aicharacter/_jojochan/swordman/soldoros/soldoros_custom_doll.aic";
+const CUSTOM_SUMMON_APC_ID = 990_001;
 const EXPECTED_FILE_COUNT = 24;
 const EXPECTED_OVERLAY_COUNT = EXPECTED_FILE_COUNT + 3;
 
 async function buildChoroPipeline() {
   const result = await buildPvfPipeline({
     archivePath: FIXTURE_ARCHIVE_PATH,
-    registry: createPvfModRegistry([choroPartsetSkillUpModDefinition]),
+    registry: createPvfModRegistry([
+      soldorosDollModDefinition,
+      choroPartsetSkillUpModDefinition,
+    ]),
     pipeline: {
       id: "choro-only",
+      mods: [
+        {
+          id: SOLDOROS_DOLL_MOD_ID,
+        },
+        {
+          id: CHORO_PARTSET_SKILL_UP_MOD_ID,
+        },
+      ],
+    },
+  });
+  const soldorosSummary = result.mods[0]?.result as SoldorosDollModSummary | undefined;
+  const summary = result.mods[1]?.result as ChoroPartsetSkillUpModSummary | undefined;
+
+  if (!soldorosSummary) {
+    throw new Error("Missing Soldoros prerequisite summary.");
+  }
+
+  if (!summary) {
+    throw new Error("Missing Choro pipeline summary.");
+  }
+
+  return {
+    result,
+    soldorosSummary,
+    summary,
+  };
+}
+
+test("choro support mod omits summon command when the doll prerequisite is missing", async () => {
+  const result = await buildPvfPipeline({
+    archivePath: FIXTURE_ARCHIVE_PATH,
+    registry: createPvfModRegistry([choroPartsetSkillUpModDefinition]),
+    pipeline: {
+      id: "choro-without-prerequisite",
       mods: [
         {
           id: CHORO_PARTSET_SKILL_UP_MOD_ID,
@@ -41,18 +98,74 @@ async function buildChoroPipeline() {
   const summary = result.mods[0]?.result as ChoroPartsetSkillUpModSummary | undefined;
 
   if (!summary) {
-    throw new Error("Missing Choro pipeline summary.");
+    throw new Error("Missing Choro summary without prerequisite.");
   }
 
-  return {
-    result,
-    summary,
+  const swordmanOverlay = result.overlays.find(
+    (overlay) => overlay.path === TARGET_SWORDMAN_OUTPUT_PATH,
+  );
+
+  assert.equal(summary.files.length, EXPECTED_FILE_COUNT);
+  assert.equal(summary.skipped.length, 0);
+  assert.ok(swordmanOverlay);
+  assert.ok(result.overlays.some((overlay) => overlay.path === EQUIPMENT_LIST_PATH));
+  assert.ok(!result.overlays.some((overlay) => overlay.path === AI_CHARACTER_LIST_PATH));
+  assert.ok(!result.overlays.some((overlay) => overlay.path === TARGET_SUMMON_APC_PATH));
+  assert.match(String(swordmanOverlay.content), /\[explain\]/u);
+  assert.match(String(swordmanOverlay.content), /获得以下套装的套装效果：/u);
+  assert.doesNotMatch(
+    String(swordmanOverlay.content),
+    /剑圣索德罗斯协助自身战斗，剑圣索德罗斯存在15分钟。/u,
+  );
+  assert.doesNotMatch(String(swordmanOverlay.content), /\[command\]/u);
+  assert.doesNotMatch(String(swordmanOverlay.content), /\[summon apc\]/u);
+});
+
+test("choro support mod discovers the summon APC id from previous mod overlays", async () => {
+  const prerequisiteMod: PvfMod = {
+    id: "inject-custom-soldoros-doll",
+    async apply(session) {
+      const aiCharacterListDocument = await session.readScriptDocument(AI_CHARACTER_LIST_PATH);
+      const sourceSummonDocument = await session.readScriptDocument(SOURCE_SUMMON_APC_PATH);
+
+      session.writeScriptDocument(
+        CUSTOM_SUMMON_APC_PATH,
+        buildSupportSummonDollDocument(sourceSummonDocument),
+      );
+      session.writeScriptDocument(
+        AI_CHARACTER_LIST_PATH,
+        updateListedPathDocument(
+          aiCharacterListDocument,
+          "aicharacter",
+          [
+            {
+              id: CUSTOM_SUMMON_APC_ID,
+              path: CUSTOM_SUMMON_APC_PATH,
+            },
+          ],
+        ),
+      );
+    },
   };
-}
+  const result = await runPvfMods({
+    archivePath: FIXTURE_ARCHIVE_PATH,
+    mods: [prerequisiteMod, createChoroPartsetSkillUpMod()],
+  });
+  const swordmanOverlay = result.overlays.find(
+    (overlay) => overlay.path === TARGET_SWORDMAN_OUTPUT_PATH,
+  );
+
+  assert.ok(swordmanOverlay);
+  assert.match(
+    String(swordmanOverlay.content),
+    new RegExp(`\\[summon apc\\]\\r?\\n${CUSTOM_SUMMON_APC_ID}\\t99\\t1`, "u"),
+  );
+});
 
 test("choro mod builds generated support overlays through the pipeline", async () => {
-  const { result, summary } = await buildChoroPipeline();
+  const { result, soldorosSummary, summary } = await buildChoroPipeline();
 
+  assert.equal(soldorosSummary.dollAicId, TARGET_SUMMON_APC_ID);
   assert.equal(summary.files.length, EXPECTED_FILE_COUNT);
   assert.equal(result.overlays.length, EXPECTED_OVERLAY_COUNT);
   assert.equal(summary.skipped.length, 0);
@@ -104,7 +217,7 @@ test("choro mod builds generated support overlays through the pipeline", async (
   );
 
   assert.ok(summonApcOverlay);
-  assert.match(String(summonApcOverlay.content), /剑圣索德罗斯/u);
+  assert.match(String(summonApcOverlay.content), /\[minimum info\][\s\S]*索德罗斯/u);
   assert.match(String(summonApcOverlay.content), /\[attack damage rate\]\r?\n1\.0/u);
 
   const swordmanDocument = parseEquDocument(String(swordmanOverlay.content));
@@ -128,10 +241,16 @@ test("choro mod applies cleanly through the pipeline", async () => {
     const result = await applyPvfPipeline({
       archivePath: FIXTURE_ARCHIVE_PATH,
       outputPath,
-      registry: createPvfModRegistry([choroPartsetSkillUpModDefinition]),
+      registry: createPvfModRegistry([
+        soldorosDollModDefinition,
+        choroPartsetSkillUpModDefinition,
+      ]),
       pipeline: {
         id: "choro-only",
         mods: [
+          {
+            id: SOLDOROS_DOLL_MOD_ID,
+          },
           {
             id: CHORO_PARTSET_SKILL_UP_MOD_ID,
           },
@@ -179,7 +298,7 @@ test("choro mod applies cleanly through the pipeline", async () => {
         content,
         new RegExp(`\\[summon apc\\]\\r?\\n${TARGET_SUMMON_APC_ID}\\t99\\t1`, "u"),
       );
-      assert.match(summonApcText, /剑圣索德罗斯/u);
+      assert.match(summonApcText, /\[minimum info\][\s\S]*索德罗斯/u);
       assert.match(summonApcText, /\[attack damage rate\]\r?\n1\.0/u);
       assert.match(
         aiCharacterListText,

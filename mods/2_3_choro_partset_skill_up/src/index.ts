@@ -9,7 +9,6 @@ import type {
 } from "./types.ts";
 
 export const CHORO_PARTSET_SKILL_UP_MOD_ID = "2_3_choro_partset_skill_up";
-
 export const choroPartsetSkillUpModDefinition: PvfRegisteredMod<
   undefined,
   ChoroPartsetSkillUpModSummary
