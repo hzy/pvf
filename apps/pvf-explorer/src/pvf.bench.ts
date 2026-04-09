@@ -69,11 +69,11 @@ async function runAsyncBenchmark(
   };
 }
 
-async function runSyncBenchmark(
+function runSyncBenchmark(
   name: string,
   iterations: number,
   fn: () => void,
-): Promise<BenchmarkResult> {
+): BenchmarkResult {
   const samples: number[] = [];
 
   for (let index = 0; index < iterations; index += 1) {
@@ -147,11 +147,11 @@ async function benchmarkWarmOperations(): Promise<BenchmarkResult[]> {
     },
   );
 
-  const listRoot = await runSyncBenchmark("listDirectory(\"\")", listIterations, () => {
+  const listRoot = runSyncBenchmark("listDirectory(\"\")", listIterations, () => {
     archive.listDirectory("");
   });
 
-  const listNested = await runSyncBenchmark(
+  const listNested = runSyncBenchmark(
     `listDirectory("${samplePaths.nestedDirectory}")`,
     listIterations,
     () => {

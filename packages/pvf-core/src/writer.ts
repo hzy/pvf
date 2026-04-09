@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import type { PvfArchive } from "./archive.ts";
@@ -13,13 +13,13 @@ import {
 } from "./codec.ts";
 import { compilePvfScriptText } from "./script.ts";
 import { MutableStringTable } from "./string-table.ts";
-import {
-  DEFAULT_TEXT_PROFILE,
-  type LoadTextOverlayDirectoryOptions,
-  type OverlayMode,
-  type PvfFileRecord,
-  type PvfOverlayFile,
-  type TextProfile,
+import { DEFAULT_TEXT_PROFILE } from "./types.ts";
+import type {
+  LoadTextOverlayDirectoryOptions,
+  OverlayMode,
+  PvfFileRecord,
+  PvfOverlayFile,
+  TextProfile,
 } from "./types.ts";
 
 export type WriteStrategy = "repack";
@@ -306,10 +306,7 @@ export async function writeArchive(
   await source.ensureLoaded();
 
   const getStringTable = async (): Promise<MutableStringTable> => {
-    if (!stringTable) {
-      stringTable = await getMutableStringTable(source, textProfile);
-    }
-
+    stringTable ??= await getMutableStringTable(source, textProfile);
     return stringTable;
   };
 

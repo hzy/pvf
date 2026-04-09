@@ -12,14 +12,10 @@ import {
   toDataView,
 } from "./codec.ts";
 import { LazyStringTable } from "./string-table.ts";
-import {
-  DEFAULT_TEXT_PROFILE,
-  type DirectoryItem,
-  type PvfFileRecord,
-  type PvfHeader,
-  type TextProfile,
-} from "./types.ts";
-import { type PvfWriteOptions, type PvfWriteResult, writeArchive } from "./writer.ts";
+import { DEFAULT_TEXT_PROFILE } from "./types.ts";
+import type { DirectoryItem, PvfFileRecord, PvfHeader, TextProfile } from "./types.ts";
+import { writeArchive } from "./writer.ts";
+import type { PvfWriteOptions, PvfWriteResult } from "./writer.ts";
 
 const HEADER_TAIL_SIZE = 16;
 const ROOT_PATH = "";
@@ -112,6 +108,7 @@ export class PvfArchive {
     await this.#loading;
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async close(): Promise<void> {
     this.#sourceBytes = undefined;
     this.#header = undefined;
@@ -251,7 +248,8 @@ export class PvfArchive {
   #parseDirectoryTree(treeBytes: Uint8Array): void {
     const view = toDataView(treeBytes);
     const buffer = toBufferView(treeBytes);
-    this.#entriesInOrder = new Array<PvfFileRecord>(this.header.numFilesInDirTree);
+    this.#entriesInOrder = [];
+    this.#entriesInOrder.length = this.header.numFilesInDirTree;
     let offset = 0;
 
     for (let treeIndex = 0; treeIndex < this.header.numFilesInDirTree; treeIndex += 1) {

@@ -5,13 +5,11 @@ import {
   createSection,
   createStatement,
   createStringToken,
-  type EquDocument,
-  type EquSectionNode,
-  type EquToken,
   parseEquDocument,
   stringifyEquDocument,
   visitEqu,
 } from "./equ.ts";
+import type { EquDocument, EquSectionNode, EquToken } from "./equ.ts";
 import { expectedStrings, fixturePath, samplePaths } from "./pvf.fixture.ts";
 import { PvfArchive } from "./pvf.ts";
 
@@ -32,7 +30,7 @@ function findTopLevelSection(document: EquDocument, name: string): EquSectionNod
 function getFirstToken(section: EquSectionNode): EquToken {
   const firstChild = section.children[0];
 
-  if (!firstChild || firstChild.kind !== "statement" || firstChild.tokens.length === 0) {
+  if (firstChild?.kind !== "statement" || firstChild.tokens.length === 0) {
     throw new Error(`Section [${section.name}] does not contain a statement token.`);
   }
 

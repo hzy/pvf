@@ -7,16 +7,19 @@
   },
   "scripts": {
     "check": "tsc --noEmit -p tsconfig.json",
-    "test": "node --test --test-concurrency=1 src/**/*.test.ts",
-    "example": "node src/example.ts"
+    "example": "node src/example.ts",
+    "test": "node --test --test-concurrency=1 src/**/*.test.ts"
   },
   "dependencies": {
     "@pvf/equ-ast": "workspace:*"
   },
   "devDependencies": {
-    "@types/node": "^24.0.0",
     "@tsconfig/node24": "^24.0.0",
     "@tsconfig/strictest": "^2.0.5",
+    "@types/node": "^24.0.0",
     "typescript": "^6.0.2"
+  },
+  "engines": {
+    "node": ">=24"
   }
 }

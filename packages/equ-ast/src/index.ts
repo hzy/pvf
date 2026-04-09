@@ -262,7 +262,7 @@ function parseStatementLine(line: string): EquStatementNode {
     }
 
     if (line[index] === "<") {
-      const linkMatch = /^<([+-]?\d+)::([^`]+)`([^`]*)`>/u.exec(
+      const linkMatch = /^<[+-]?\d+::[^`]+`[^`]*`>/u.exec(
         line.slice(index),
       );
 
@@ -307,7 +307,7 @@ function parseStatementLine(line: string): EquStatementNode {
 }
 
 function isUnterminatedTokenError(error: unknown): boolean {
-  return error instanceof Error && /^Unterminated /u.test(error.message);
+  return error instanceof Error && error.message.startsWith("Unterminated ");
 }
 
 function parseStatementWithContinuation(state: ParseState): EquStatementNode {

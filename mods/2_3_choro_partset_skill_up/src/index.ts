@@ -9,20 +9,13 @@ import {
   createSection,
   createStatement,
   createStringToken,
-  type EquDocument,
-  type EquNode,
-  type EquSectionNode,
-  type EquStatementNode,
   parseEquDocument,
   stringifyEquDocument,
 } from "@pvf/equ-ast";
+import type { EquDocument, EquNode, EquSectionNode, EquStatementNode } from "@pvf/equ-ast";
 
-import {
-  DEFAULT_TEXT_PROFILE,
-  PvfArchive,
-  type PvfOverlayFile,
-  type TextProfile,
-} from "../../../packages/pvf-core/src/index.ts";
+import { DEFAULT_TEXT_PROFILE, PvfArchive } from "../../../packages/pvf-core/src/index.ts";
+import type { PvfOverlayFile, TextProfile } from "../../../packages/pvf-core/src/index.ts";
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const REPO_ROOT = resolve(PACKAGE_ROOT, "../..");
