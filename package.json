@@ -19,7 +19,8 @@
   },
   "lint-staged": {
     "*.{ts,js,mjs,cjs}": [
-      "eslint --fix"
+      "eslint --fix",
+      "dprint fmt --allow-no-files --"
     ],
     "!(package).json": [
       "dprint fmt --allow-no-files --"
