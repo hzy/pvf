@@ -7,6 +7,7 @@ import {
   isStatement,
   loadListedPathById,
   readEquDocument,
+  removeTopLevelSection,
   replaceTopLevelSection,
   updateListedPathDocument,
 } from "@pvf/pvf-mod";
@@ -80,13 +81,41 @@ function replaceMinimumInfoName(
 export function buildSupportSummonDollDocument(
   sourceDocument: EquDocument,
 ): EquDocument {
-  return replaceTopLevelSection(
-    replaceMinimumInfoName(sourceDocument, SUPPORT_SUMMON_DOLL_NAME),
+  const withName = replaceMinimumInfoName(sourceDocument, SUPPORT_SUMMON_DOLL_NAME);
+  const withDamageRate = replaceTopLevelSection(
+    withName,
     createSingleFloatLiteralSection(
       "attack damage rate",
       SUPPORT_SUMMON_ATTACK_DAMAGE_RATE,
     ),
   );
+  const withoutArmorSubtype = removeTopLevelSection(withDamageRate, "armor subtype");
+  return filterEtcAction(withoutArmorSubtype);
+}
+
+function filterEtcAction(document: EquDocument): EquDocument {
+  const etcActionSection = getFirstSection(document.children, "etc action");
+
+  if (!etcActionSection) {
+    return document;
+  }
+
+  const filteredSection: EquSectionNode = {
+    ...etcActionSection,
+    children: etcActionSection.children.filter((child) => {
+      if (!isStatement(child)) {
+        return true;
+      }
+
+      return !child.tokens.some(
+        (token) =>
+          (token.kind === "string" || token.kind === "identifier") &&
+          token.value.endsWith("ex2.act"),
+      );
+    }),
+  };
+
+  return replaceTopLevelSection(document, filteredSection);
 }
 
 export async function tryFindAiCharacterByName(
