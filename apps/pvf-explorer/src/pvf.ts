@@ -1,10 +1,12 @@
 import {
+  PvfArchive as CorePvfArchive,
   DEFAULT_TEXT_PROFILE,
   isStructuredScriptChunk,
-  PvfArchive as CorePvfArchive,
-  type TextProfile,
 } from "@pvf/pvf-core";
-import { type EquDocument, parseEquDocument } from "./equ.ts";
+import type { TextProfile } from "@pvf/pvf-core";
+
+import { parseEquDocument } from "./equ.ts";
+import type { EquDocument } from "./equ.ts";
 
 export { DEFAULT_TEXT_PROFILE, isStructuredScriptChunk } from "@pvf/pvf-core";
 export type { DirectoryItem, PvfFileRecord, PvfHeader, TextProfile } from "@pvf/pvf-core";

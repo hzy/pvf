@@ -2,11 +2,10 @@ import {
   compareArchivePaths,
   getFirstSection,
   loadListedPathById,
-  type PvfMod,
-  type PvfModSession,
   replaceTopLevelSection,
   updateListedPathDocument,
 } from "@pvf/pvf-mod";
+import type { PvfMod, PvfModSession } from "@pvf/pvf-mod";
 
 import {
   AI_CHARACTER_LIST_PATH,

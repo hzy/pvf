@@ -8,10 +8,10 @@ import {
   applyPvfPipeline,
   buildPvfPipelineToDirectory,
   createPvfPipelineManifest,
-  type PvfPipelineConfig,
   resolvePathWithinDirectory,
   writePvfPipelineManifest,
 } from "@pvf/pvf-mod";
+import type { PvfPipelineConfig } from "@pvf/pvf-mod";
 
 import {
   defaultPipelineId,

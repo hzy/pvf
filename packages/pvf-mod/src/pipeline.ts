@@ -1,20 +1,11 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
-import {
-  DEFAULT_TEXT_PROFILE,
-  type PvfOverlayFile,
-  type PvfWriteResult,
-  type TextProfile,
-} from "@pvf/pvf-core";
+import { DEFAULT_TEXT_PROFILE } from "@pvf/pvf-core";
+import type { PvfOverlayFile, PvfWriteResult, TextProfile } from "@pvf/pvf-core";
 
-import {
-  compareArchivePaths,
-  openPvfModSession,
-  type PvfMod,
-  type PvfModSession,
-  writeOverlayDirectory,
-} from "./runtime.ts";
+import { compareArchivePaths, openPvfModSession, writeOverlayDirectory } from "./runtime.ts";
+import type { PvfMod, PvfModSession } from "./runtime.ts";
 
 export interface PvfRegisteredMod<TOptions = unknown, TResult = unknown> {
   id: string;
@@ -171,7 +162,7 @@ async function runPipeline(
     mods.push({
       id: registeredMod.id,
       ...(registeredMod.description ? { description: registeredMod.description } : {}),
-      ...(modConfig.options !== undefined ? { options: modConfig.options } : {}),
+      ...(modConfig.options === undefined ? {} : { options: modConfig.options }),
       overlayCount: afterOverlays.length,
       changedPaths: diffOverlayPaths(beforeOverlays, afterOverlays),
       result,
@@ -200,7 +191,7 @@ async function buildPipelineResult(
       ...(options.pipeline.description
         ? { pipelineDescription: options.pipeline.description }
         : {}),
-      overlays: session.listOverlays().map(cloneOverlay),
+      overlays: session.listOverlays().map((overlay) => cloneOverlay(overlay)),
       mods,
     };
   } finally {
@@ -251,7 +242,7 @@ export async function applyPvfPipeline(
       ...(options.pipeline.description
         ? { pipelineDescription: options.pipeline.description }
         : {}),
-      overlays: session.listOverlays().map(cloneOverlay),
+      overlays: session.listOverlays().map((overlay) => cloneOverlay(overlay)),
       mods,
       ...writeResult,
       outputPath,

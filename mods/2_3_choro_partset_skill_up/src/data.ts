@@ -1,5 +1,4 @@
 import type { EquDocument, EquStatementNode } from "@pvf/equ-ast";
-
 import {
   compareArchivePaths,
   findNextAvailableListedPathId,
@@ -9,11 +8,10 @@ import {
   getSections,
   getStatementInts,
   isStatement,
-  type ListedPathEntry,
   loadListedPathById,
-  type PvfModSession,
   readEquDocument,
 } from "@pvf/pvf-mod";
+import type { ListedPathEntry, PvfModSession } from "@pvf/pvf-mod";
 
 import {
   AI_CHARACTER_LIST_PATH,

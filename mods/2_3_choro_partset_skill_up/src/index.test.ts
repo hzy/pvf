@@ -5,14 +5,11 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { parseEquDocument } from "@pvf/equ-ast";
-
 import { PvfArchive } from "@pvf/pvf-core";
 import { applyPvfPipeline, buildPvfPipeline, createPvfModRegistry } from "@pvf/pvf-mod";
-import {
-  CHORO_PARTSET_SKILL_UP_MOD_ID,
-  choroPartsetSkillUpModDefinition,
-  type ChoroPartsetSkillUpModSummary,
-} from "./index.ts";
+
+import { CHORO_PARTSET_SKILL_UP_MOD_ID, choroPartsetSkillUpModDefinition } from "./index.ts";
+import type { ChoroPartsetSkillUpModSummary } from "./index.ts";
 
 const FIXTURE_ARCHIVE_PATH = new URL("../../../fixtures/Script.pvf", import.meta.url).pathname;
 const TARGET_SWORDMAN_SUPPORT_PATH = "equipment/character/common/support/support_3choro65.equ";
@@ -242,9 +239,9 @@ test("generated choro overlays remain parseable", async () => {
     assert.ok(skillDataUpSections[0]?.children.length, file.supportPath);
     assert.notEqual(file.supportPath, file.outputPath, file.className);
     const explainToken = explainSections[0]?.children[0];
-    assert.ok(explainToken && explainToken.kind === "statement", file.supportPath);
+    assert.ok(explainToken?.kind === "statement", file.supportPath);
 
-    if (!explainToken || explainToken.kind !== "statement") {
+    if (explainToken?.kind !== "statement") {
       throw new Error(`Missing explain statement for ${file.supportPath}`);
     }
 

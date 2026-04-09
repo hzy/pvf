@@ -4,10 +4,8 @@ import {
   createSection,
   createStatement,
   createStringToken,
-  type EquDocument,
-  type EquSectionNode,
 } from "@pvf/equ-ast";
-
+import type { EquDocument, EquSectionNode } from "@pvf/equ-ast";
 import {
   compareArchivePaths,
   createSingleFloatLiteralSection,

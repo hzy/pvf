@@ -3,6 +3,7 @@ import { readdir } from "node:fs/promises";
 import path from "node:path";
 
 import type { TextProfile } from "@pvf/pvf-core";
+
 import { PvfArchive } from "./pvf.ts";
 
 export interface ArchiveSummary {

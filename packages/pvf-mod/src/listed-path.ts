@@ -1,11 +1,5 @@
-import {
-  createIntToken,
-  createStatement,
-  createStringToken,
-  type EquDocument,
-  type EquStatementNode,
-  type RenderedEquReader,
-} from "@pvf/equ-ast";
+import { createIntToken, createStatement, createStringToken } from "@pvf/equ-ast";
+import type { EquDocument, EquStatementNode, RenderedEquReader } from "@pvf/equ-ast";
 import type { TextProfile } from "@pvf/pvf-core";
 
 import { isStatement } from "./equ.ts";

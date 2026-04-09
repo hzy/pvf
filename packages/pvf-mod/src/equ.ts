@@ -4,12 +4,14 @@ import {
   createSection,
   createStatement,
   createStringToken,
-  type EquDocument,
-  type EquNode,
-  type EquSectionNode,
-  type EquStatementNode,
   parseEquDocument,
-  type RenderedEquReader,
+} from "@pvf/equ-ast";
+import type {
+  EquDocument,
+  EquNode,
+  EquSectionNode,
+  EquStatementNode,
+  RenderedEquReader,
 } from "@pvf/equ-ast";
 import type { TextProfile } from "@pvf/pvf-core";
 

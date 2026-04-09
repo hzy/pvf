@@ -111,14 +111,25 @@
       "path": "./apps/pvf-explorer/tsconfig.json"
     },
     {
+      "path": "./apps/pvf-mod-cli/tsconfig.json"
+    },
+    {
       "path": "./mods/2_3_choro_partset_skill_up/tsconfig.json"
+    },
+    {
+      "path": "./mods/example_wild_strawberry_hp_up/tsconfig.json"
     },
     {
       "path": "./packages/pvf-core/tsconfig.json"
     },
     {
       "path": "./packages/equ-ast/tsconfig.json"
+    },
+    {
+      "path": "./packages/pvf-mod/tsconfig.json"
     }
   ],
-  "include": []
+  "include": [
+    "mods/*.ts"
+  ]
 }

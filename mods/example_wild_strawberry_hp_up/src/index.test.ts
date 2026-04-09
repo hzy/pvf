@@ -9,10 +9,10 @@ import { applyPvfPipeline, buildPvfPipeline, createPvfModRegistry } from "@pvf/p
 
 import {
   EXAMPLE_WILD_STRAWBERRY_HP_UP_MOD_ID,
-  exampleWildStrawberryHpUpModDefinition,
   ORIGINAL_WILD_STRAWBERRY_HP_RECOVERY,
   UPDATED_WILD_STRAWBERRY_HP_RECOVERY,
   WILD_STRAWBERRY_PATH,
+  exampleWildStrawberryHpUpModDefinition,
 } from "./index.ts";
 
 const FIXTURE_ARCHIVE_PATH = new URL("../../../fixtures/Script.pvf", import.meta.url).pathname;

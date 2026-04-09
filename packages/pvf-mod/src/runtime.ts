@@ -1,21 +1,10 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
-import {
-  type EquDocument,
-  parseEquDocument,
-  type RenderedEquReader,
-  stringifyEquDocument,
-} from "@pvf/equ-ast";
-import {
-  DEFAULT_TEXT_PROFILE,
-  normalizeArchivePath,
-  PvfArchive,
-  type PvfOverlayFile,
-  type PvfWriteOptions,
-  type PvfWriteResult,
-  type TextProfile,
-} from "@pvf/pvf-core";
+import { parseEquDocument, stringifyEquDocument } from "@pvf/equ-ast";
+import type { EquDocument, RenderedEquReader } from "@pvf/equ-ast";
+import { DEFAULT_TEXT_PROFILE, PvfArchive, normalizeArchivePath } from "@pvf/pvf-core";
+import type { PvfOverlayFile, PvfWriteOptions, PvfWriteResult, TextProfile } from "@pvf/pvf-core";
 
 import { resolvePathWithinDirectory } from "./path.ts";
 
@@ -106,7 +95,7 @@ export class PvfModSession implements RenderedEquReader<TextProfile> {
   }
 
   listOverlays(): PvfOverlayFile[] {
-    return sortOverlays([...this.#overlays.values()].map(cloneOverlay));
+    return sortOverlays([...this.#overlays.values()].map((overlay) => cloneOverlay(overlay)));
   }
 
   setOverlay(overlay: PvfOverlayFile): void {

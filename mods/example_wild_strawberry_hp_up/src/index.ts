@@ -1,20 +1,7 @@
-import {
-  createIntToken,
-  type EquDocument,
-  type EquNode,
-  type EquSectionNode,
-  type EquStatementNode,
-} from "@pvf/equ-ast";
-
-import {
-  getFirstSection,
-  getFirstSectionString,
-  isSection,
-  isStatement,
-  type PvfMod,
-  type PvfModSession,
-  type PvfRegisteredMod,
-} from "@pvf/pvf-mod";
+import { createIntToken } from "@pvf/equ-ast";
+import type { EquDocument, EquNode, EquSectionNode, EquStatementNode } from "@pvf/equ-ast";
+import { getFirstSection, getFirstSectionString, isSection, isStatement } from "@pvf/pvf-mod";
+import type { PvfMod, PvfModSession, PvfRegisteredMod } from "@pvf/pvf-mod";
 
 export const EXAMPLE_WILD_STRAWBERRY_HP_UP_MOD_ID = "example_wild_strawberry_hp_up";
 export const WILD_STRAWBERRY_PATH = "stackable/pharmaceutical/food_strawberry.stk";
