@@ -1,19 +1,17 @@
 import assert from "node:assert/strict";
-import { copyFile, mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import test from "node:test";
 
 import { parseEquDocument } from "@pvf/equ-ast";
+import { PvfArchive } from "@pvf/pvf-core";
+import { applyPvfPipeline, buildPvfPipeline, createPvfModRegistry } from "@pvf/pvf-mod";
 
-import {
-  DEFAULT_ARCHIVE_PATH,
-  applyChoroPartsetSkillUpMod,
-  buildChoroPartsetSkillUpMod,
-  generateChoroPartsetSkillUpMod,
-} from "./index.ts";
-import { PvfArchive } from "../../../packages/pvf-core/src/index.ts";
+import { CHORO_PARTSET_SKILL_UP_MOD_ID, choroPartsetSkillUpModDefinition } from "./index.ts";
+import type { ChoroPartsetSkillUpModSummary } from "./index.ts";
 
+const FIXTURE_ARCHIVE_PATH = new URL("../../../fixtures/Script.pvf", import.meta.url).pathname;
 const TARGET_SWORDMAN_SUPPORT_PATH = "equipment/character/common/support/support_3choro65.equ";
 const TARGET_SWORDMAN_OUTPUT_PATH = "equipment/character/common/support/support_440453.equ";
 const TARGET_EXORCIST_SUPPORT_PATH = "equipment/character/common/support/support_3choro83.equ";
@@ -27,14 +25,37 @@ const TARGET_SUMMON_APC_ID = 1520;
 const EXPECTED_FILE_COUNT = 24;
 const EXPECTED_OVERLAY_COUNT = EXPECTED_FILE_COUNT + 3;
 
-test("buildChoroPartsetSkillUpMod returns generated support overlays and equipment list update", async () => {
-  const result = await buildChoroPartsetSkillUpMod({
-    archivePath: DEFAULT_ARCHIVE_PATH,
+async function buildChoroPipeline() {
+  const result = await buildPvfPipeline({
+    archivePath: FIXTURE_ARCHIVE_PATH,
+    registry: createPvfModRegistry([choroPartsetSkillUpModDefinition]),
+    pipeline: {
+      id: "choro-only",
+      mods: [
+        {
+          id: CHORO_PARTSET_SKILL_UP_MOD_ID,
+        },
+      ],
+    },
   });
+  const summary = result.mods[0]?.result as ChoroPartsetSkillUpModSummary | undefined;
 
-  assert.equal(result.files.length, EXPECTED_FILE_COUNT);
+  if (!summary) {
+    throw new Error("Missing Choro pipeline summary.");
+  }
+
+  return {
+    result,
+    summary,
+  };
+}
+
+test("choro mod builds generated support overlays through the pipeline", async () => {
+  const { result, summary } = await buildChoroPipeline();
+
+  assert.equal(summary.files.length, EXPECTED_FILE_COUNT);
   assert.equal(result.overlays.length, EXPECTED_OVERLAY_COUNT);
-  assert.equal(result.skipped.length, 0);
+  assert.equal(summary.skipped.length, 0);
   assert.ok(
     result.overlays.every(
       (overlay) => overlay.mode === "script" && typeof overlay.content === "string",
@@ -44,16 +65,16 @@ test("buildChoroPartsetSkillUpMod returns generated support overlays and equipme
   assert.ok(result.overlays.some((overlay) => overlay.path === AI_CHARACTER_LIST_PATH));
   assert.ok(result.overlays.some((overlay) => overlay.path === TARGET_SUMMON_APC_PATH));
 
-  const swordmanSupport = result.files.find(
+  const swordmanSupport = summary.files.find(
     (file) => file.supportPath === TARGET_SWORDMAN_SUPPORT_PATH,
   );
   const swordmanOverlay = result.overlays.find(
     (overlay) => overlay.path === swordmanSupport?.outputPath,
   );
-  const exorcistSupport = result.files.find(
+  const exorcistSupport = summary.files.find(
     (file) => file.supportPath === TARGET_EXORCIST_SUPPORT_PATH,
   );
-  const avengerSupport = result.files.find(
+  const avengerSupport = summary.files.find(
     (file) => file.supportPath === TARGET_AVENGER_SUPPORT_PATH,
   );
 
@@ -99,109 +120,25 @@ test("buildChoroPartsetSkillUpMod returns generated support overlays and equipme
   assert.ok(explainIndex < gradeIndex);
 });
 
-test("generateChoroPartsetSkillUpMod creates Choro support overlay files", async () => {
-  const outputDir = await mkdtemp(join(tmpdir(), "pvf-choro-mod-"));
+test("choro mod applies cleanly through the pipeline", async () => {
+  const workDir = await mkdtemp(join(tmpdir(), "pvf-choro-pipeline-"));
+  const outputPath = join(workDir, "Script.mod.pvf");
 
   try {
-    const result = await generateChoroPartsetSkillUpMod({
-      archivePath: DEFAULT_ARCHIVE_PATH,
-      outputDir,
-    });
-
-    assert.equal(result.files.length, EXPECTED_FILE_COUNT);
-    assert.equal(result.overlays.length, EXPECTED_OVERLAY_COUNT);
-    assert.equal(result.skipped.length, 0);
-
-    const swordmanSupport = result.files.find(
-      (file) => file.supportPath === TARGET_SWORDMAN_SUPPORT_PATH,
-    );
-    const exorcistSupport = result.files.find(
-      (file) => file.supportPath === TARGET_EXORCIST_SUPPORT_PATH,
-    );
-    const avengerSupport = result.files.find(
-      (file) => file.supportPath === TARGET_AVENGER_SUPPORT_PATH,
-    );
-
-    assert.ok(swordmanSupport);
-    assert.ok(exorcistSupport);
-    assert.ok(avengerSupport);
-    assert.ok(
-      swordmanSupport.sourcePartsets.includes(
-        "equipment/character/partset/2choroset3.equ",
-      ),
-    );
-
-    const swordmanText = await readFile(
-      resolve(outputDir, TARGET_SWORDMAN_OUTPUT_PATH),
-      "utf8",
-    );
-    const summonApcText = await readFile(
-      resolve(outputDir, TARGET_SUMMON_APC_PATH),
-      "utf8",
-    );
-    const aiCharacterListText = await readFile(
-      resolve(outputDir, AI_CHARACTER_LIST_PATH),
-      "utf8",
-    );
-    const equipmentListText = await readFile(
-      resolve(outputDir, EQUIPMENT_LIST_PATH),
-      "utf8",
-    );
-
-    assert.match(swordmanText, /\[skill data up\]/u);
-    assert.match(swordmanText, /\[explain\]/u);
-    assert.match(swordmanText, /诸界融核臂章 - 剑魂/u);
-    assert.match(
-      swordmanText,
-      /剑圣索德罗斯协助自身战斗，剑圣索德罗斯存在15分钟。/u,
-    );
-    assert.match(
-      swordmanText,
-      /\{6=`\(UP\)`\}\r?\n\{8=`,`\}\r?\n\{6=`\(DOWN\)`\}\r?\n\{8=`,`\}\r?\n\{6=`\(CREATURE\)`\}/u,
-    );
-    assert.match(
-      swordmanText,
-      new RegExp(`\\[summon apc\\]\\r?\\n${TARGET_SUMMON_APC_ID}\\t99\\t1`, "u"),
-    );
-    assert.match(summonApcText, /剑圣索德罗斯/u);
-    assert.match(summonApcText, /\[attack damage rate\]\r?\n1\.0/u);
-    assert.match(
-      aiCharacterListText,
-      /1520\t`_jojochan\/swordman\/soldoros\/soldoros_doll\.aic`/u,
-    );
-    assert.match(swordmanText, /\n\t.+/u);
-    assert.match(
-      swordmanText,
-      /108\t`\[dungeon type\]`\r?\n`\[level\]`\r?\n3\t`%`\r?\n30/u,
-    );
-    assert.match(
-      equipmentListText,
-      /440453\t`character\/common\/support\/support_440453\.equ`/u,
-    );
-    assert.match(
-      equipmentListText,
-      /440471\t`character\/common\/support\/support_440471\.equ`/u,
-    );
-  } finally {
-    await rm(outputDir, { recursive: true, force: true });
-  }
-});
-
-test("applyChoroPartsetSkillUpMod writes Choro support overlays into a new PVF", async () => {
-  const workDir = await mkdtemp(join(tmpdir(), "pvf-choro-mod-"));
-  const archivePath = resolve(workDir, "Script.source.pvf");
-  const outputPath = resolve(workDir, "Script.mod.pvf");
-
-  try {
-    await copyFile(DEFAULT_ARCHIVE_PATH, archivePath);
-
-    const result = await applyChoroPartsetSkillUpMod({
-      archivePath,
+    const result = await applyPvfPipeline({
+      archivePath: FIXTURE_ARCHIVE_PATH,
       outputPath,
+      registry: createPvfModRegistry([choroPartsetSkillUpModDefinition]),
+      pipeline: {
+        id: "choro-only",
+        mods: [
+          {
+            id: CHORO_PARTSET_SKILL_UP_MOD_ID,
+          },
+        ],
+      },
     });
 
-    assert.equal(result.files.length, EXPECTED_FILE_COUNT);
-    assert.equal(result.skipped.length, 0);
     assert.ok(result.updatedPaths.includes(AI_CHARACTER_LIST_PATH));
     assert.ok(result.updatedPaths.includes(EQUIPMENT_LIST_PATH));
     assert.ok(result.addedPaths.includes(TARGET_SUMMON_APC_PATH));
@@ -265,67 +202,60 @@ test("applyChoroPartsetSkillUpMod writes Choro support overlays into a new PVF",
   }
 });
 
-test("generated Choro support overlay files remain parseable", async () => {
-  const outputDir = await mkdtemp(join(tmpdir(), "pvf-choro-mod-"));
+test("generated choro overlays remain parseable", async () => {
+  const { result, summary } = await buildChoroPipeline();
 
-  try {
-    const result = await generateChoroPartsetSkillUpMod({
-      archivePath: DEFAULT_ARCHIVE_PATH,
-      outputDir,
-    });
+  for (const file of summary.files) {
+    const overlay = result.overlays.find((candidate) => candidate.path === file.outputPath);
 
-    for (const file of result.files) {
-      const content = await readFile(resolve(outputDir, file.outputPath), "utf8");
-      const document = parseEquDocument(content);
-      const skillDataUpSections = document.children.filter(
-        (node): node is (typeof document.children)[number] & { kind: "section" } =>
-          node.kind === "section" && node.name === "skill data up",
-      );
-      const explainSections = document.children.filter(
-        (node): node is (typeof document.children)[number] & { kind: "section" } =>
-          node.kind === "section" && node.name === "explain",
-      );
-      const commandSections = document.children.filter(
-        (node): node is (typeof document.children)[number] & { kind: "section" } =>
-          node.kind === "section" && node.name === "command",
-      );
-      const ifSections = document.children.filter(
-        (node): node is (typeof document.children)[number] & { kind: "section" } =>
-          node.kind === "section" && node.name === "if",
-      );
-      const thenSections = document.children.filter(
-        (node): node is (typeof document.children)[number] & { kind: "section" } =>
-          node.kind === "section" && node.name === "then",
-      );
+    assert.ok(overlay);
+    const document = parseEquDocument(String(overlay.content));
+    const skillDataUpSections = document.children.filter(
+      (node): node is (typeof document.children)[number] & { kind: "section" } =>
+        node.kind === "section" && node.name === "skill data up",
+    );
+    const explainSections = document.children.filter(
+      (node): node is (typeof document.children)[number] & { kind: "section" } =>
+        node.kind === "section" && node.name === "explain",
+    );
+    const commandSections = document.children.filter(
+      (node): node is (typeof document.children)[number] & { kind: "section" } =>
+        node.kind === "section" && node.name === "command",
+    );
+    const ifSections = document.children.filter(
+      (node): node is (typeof document.children)[number] & { kind: "section" } =>
+        node.kind === "section" && node.name === "if",
+    );
+    const thenSections = document.children.filter(
+      (node): node is (typeof document.children)[number] & { kind: "section" } =>
+        node.kind === "section" && node.name === "then",
+    );
 
-      assert.equal(skillDataUpSections.length, 1, file.supportPath);
-      assert.equal(explainSections.length, 1, file.supportPath);
-      assert.equal(commandSections.length, 1, file.supportPath);
-      assert.equal(ifSections.length, 1, file.supportPath);
-      assert.equal(thenSections.length, 1, file.supportPath);
-      assert.ok(skillDataUpSections[0]?.children.length, file.supportPath);
-      assert.notEqual(file.supportPath, file.outputPath, file.className);
-      const explainToken = explainSections[0]?.children[0];
-      assert.ok(explainToken?.kind === "statement", file.supportPath);
+    assert.equal(skillDataUpSections.length, 1, file.supportPath);
+    assert.equal(explainSections.length, 1, file.supportPath);
+    assert.equal(commandSections.length, 1, file.supportPath);
+    assert.equal(ifSections.length, 1, file.supportPath);
+    assert.equal(thenSections.length, 1, file.supportPath);
+    assert.ok(skillDataUpSections[0]?.children.length, file.supportPath);
+    assert.notEqual(file.supportPath, file.outputPath, file.className);
+    const explainToken = explainSections[0]?.children[0];
+    assert.ok(explainToken?.kind === "statement", file.supportPath);
 
-      if (explainToken?.kind !== "statement") {
-        throw new Error(`Missing explain statement for ${file.supportPath}`);
-      }
-
-      const firstToken = explainToken.tokens[0];
-      assert.ok(firstToken?.kind === "string", file.supportPath);
-
-      if (firstToken?.kind !== "string") {
-        throw new Error(`Missing explain string token for ${file.supportPath}`);
-      }
-
-      assert.match(
-        firstToken.value,
-        /剑圣索德罗斯协助自身战斗，剑圣索德罗斯存在15分钟。\n获得以下套装的套装效果：\n\t.+/u,
-        file.supportPath,
-      );
+    if (explainToken?.kind !== "statement") {
+      throw new Error(`Missing explain statement for ${file.supportPath}`);
     }
-  } finally {
-    await rm(outputDir, { recursive: true, force: true });
+
+    const firstToken = explainToken.tokens[0];
+    assert.ok(firstToken?.kind === "string", file.supportPath);
+
+    if (firstToken?.kind !== "string") {
+      throw new Error(`Missing explain string token for ${file.supportPath}`);
+    }
+
+    assert.match(
+      firstToken.value,
+      /剑圣索德罗斯协助自身战斗，剑圣索德罗斯存在15分钟。\n获得以下套装的套装效果：\n\t.+/u,
+      file.supportPath,
+    );
   }
 });

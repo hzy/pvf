@@ -1,22 +1,15 @@
-import { parseEquDocument } from "./equ.ts";
-import type { EquDocument } from "./equ.ts";
 import {
   PvfArchive as CorePvfArchive,
   DEFAULT_TEXT_PROFILE,
   isStructuredScriptChunk,
-} from "../../../packages/pvf-core/src/index.ts";
-import type { TextProfile } from "../../../packages/pvf-core/src/index.ts";
+} from "@pvf/pvf-core";
+import type { TextProfile } from "@pvf/pvf-core";
 
-export {
-  DEFAULT_TEXT_PROFILE,
-  isStructuredScriptChunk,
-} from "../../../packages/pvf-core/src/index.ts";
-export type {
-  DirectoryItem,
-  PvfFileRecord,
-  PvfHeader,
-  TextProfile,
-} from "../../../packages/pvf-core/src/index.ts";
+import { parseEquDocument } from "./equ.ts";
+import type { EquDocument } from "./equ.ts";
+
+export { DEFAULT_TEXT_PROFILE, isStructuredScriptChunk } from "@pvf/pvf-core";
+export type { DirectoryItem, PvfFileRecord, PvfHeader, TextProfile } from "@pvf/pvf-core";
 
 export class PvfArchive extends CorePvfArchive {
   async isStructuredScriptFile(path: string): Promise<boolean> {
