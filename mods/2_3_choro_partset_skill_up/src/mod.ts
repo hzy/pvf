@@ -1,35 +1,30 @@
 import {
   compareArchivePaths,
   getFirstSection,
-  loadListedPathById,
   replaceTopLevelSection,
   updateListedPathDocument,
 } from "@pvf/pvf-mod";
 import type { PvfMod, PvfModSession } from "@pvf/pvf-mod";
 
 import {
-  AI_CHARACTER_LIST_PATH,
   EQUIPMENT_LIST_PATH,
   GENERATED_SUPPORT_ID_START,
-  SUPPORT_SUMMON_SOURCE_NAME,
+  SUPPORT_SUMMON_DOLL_NAME,
   SUPPORT_TEMPLATE_PATH,
 } from "./constants.ts";
 import {
-  findAiCharacterByName,
-  findNextAvailableListedPathId,
   loadClassPartsets,
   loadEquipmentPathById,
   loadPartsetNameByPath,
   loadPartsetPathByIndex,
   loadSkillEntryBlocksByPartset,
   loadSupportPathsByClass,
+  tryFindAiCharacterByName,
 } from "./data.ts";
 import {
   buildExplainText,
   buildGeneratedSupportName,
   buildGeneratedSupportPath,
-  buildSupportSummonDollPath,
-  buildSupportSummonOverlayDocument,
   buildSupportSummonSections,
   createSingleStringSection,
   dedupeSkillEntryBlocks,
@@ -73,51 +68,19 @@ export function createChoroPartsetSkillUpMod(): PvfMod<ChoroPartsetSkillUpModSum
         allPartsets,
       );
       const templateDocument = await session.readScriptDocument(SUPPORT_TEMPLATE_PATH);
-      const aiCharacterListPathById = await loadListedPathById(
-        session,
-        AI_CHARACTER_LIST_PATH,
-        "aicharacter",
-        session.textProfile,
-      );
-      const aiCharacterListDocument = await session.readScriptDocument(
-        AI_CHARACTER_LIST_PATH,
-      );
       const equipmentListDocument = await session.readScriptDocument(
         EQUIPMENT_LIST_PATH,
       );
-      const supportSummonApc = await findAiCharacterByName(
+      const supportSummonApc = await tryFindAiCharacterByName(
         session,
-        SUPPORT_SUMMON_SOURCE_NAME,
+        SUPPORT_SUMMON_DOLL_NAME,
+        {
+          pathIncludes: "_doll",
+        },
       );
-      const supportSummonApcDocument = await session.readScriptDocument(
-        supportSummonApc.path,
-      );
-      const supportSummonDollId = findNextAvailableListedPathId(
-        aiCharacterListPathById,
-        supportSummonApc.id,
-      );
-      const supportSummonDollPath = buildSupportSummonDollPath(supportSummonApc.path);
       const files: GeneratedSupportFile[] = [];
       const skipped: SkippedSupportFile[] = [];
       let nextEquipmentId = GENERATED_SUPPORT_ID_START;
-
-      session.writeScriptDocument(
-        supportSummonDollPath,
-        buildSupportSummonOverlayDocument(supportSummonApcDocument),
-      );
-      session.writeScriptDocument(
-        AI_CHARACTER_LIST_PATH,
-        updateListedPathDocument(
-          aiCharacterListDocument,
-          "aicharacter",
-          [
-            {
-              id: supportSummonDollId,
-              path: supportSummonDollPath,
-            },
-          ],
-        ),
-      );
 
       for (
         const [className, supportPaths] of [...supportPathsByClass].sort((left, right) =>
@@ -152,7 +115,9 @@ export function createChoroPartsetSkillUpMod(): PvfMod<ChoroPartsetSkillUpModSum
           continue;
         }
 
-        const explainText = buildExplainText(sourcePartsets, partsetNameByPath);
+        const explainText = buildExplainText(sourcePartsets, partsetNameByPath, {
+          includeSupportSummonExplain: supportSummonApc !== undefined,
+        });
         const skillDataUpSection = mergeSkillDataUpBlocks(mergedBlocks);
 
         for (const supportPath of supportPaths) {
@@ -191,12 +156,14 @@ export function createChoroPartsetSkillUpMod(): PvfMod<ChoroPartsetSkillUpModSum
             );
           }
 
-          for (const section of buildSupportSummonSections(supportSummonDollId)) {
-            nextDocument = replaceTopLevelSection(
-              nextDocument,
-              section,
-              ["skill data up", "possible kiri protect", "icon mark"],
-            );
+          if (supportSummonApc) {
+            for (const section of buildSupportSummonSections(supportSummonApc.id)) {
+              nextDocument = replaceTopLevelSection(
+                nextDocument,
+                section,
+                ["skill data up", "possible kiri protect", "icon mark"],
+              );
+            }
           }
 
           nextDocument = replaceTopLevelExplain(nextDocument, explainText);

@@ -8,7 +8,6 @@ import {
 import type { EquDocument, EquSectionNode } from "@pvf/equ-ast";
 import {
   compareArchivePaths,
-  createSingleFloatLiteralSection,
   createSingleIntSection,
   createSingleStringSection,
   isSection,
@@ -19,7 +18,6 @@ import {
   EXPLAIN_HEADING,
   GENERATED_SUPPORT_NAME_PREFIX,
   SUPPORT_NAME_SEPARATOR,
-  SUPPORT_SUMMON_ATTACK_DAMAGE_RATE,
   SUPPORT_SUMMON_COOLDOWN,
   SUPPORT_SUMMON_EXPLAIN,
 } from "./constants.ts";
@@ -78,9 +76,14 @@ export function replaceTopLevelSkillDataUp(
 export function buildExplainText(
   sourcePartsets: readonly string[],
   partsetNameByPath: Map<string, string>,
+  options: {
+    includeSupportSummonExplain?: boolean;
+  } = {},
 ): string {
   const seen = new Set<string>();
-  const lines = [SUPPORT_SUMMON_EXPLAIN, EXPLAIN_HEADING];
+  const lines = options.includeSupportSummonExplain === false
+    ? [EXPLAIN_HEADING]
+    : [SUPPORT_SUMMON_EXPLAIN, EXPLAIN_HEADING];
 
   for (const partsetPath of sourcePartsets) {
     const partsetName = partsetNameByPath.get(partsetPath)?.trim();
@@ -166,26 +169,6 @@ export function buildGeneratedSupportName(className: string): string {
 
 export function buildGeneratedSupportPath(equipmentId: number): string {
   return `equipment/character/common/support/support_${equipmentId}.equ`;
-}
-
-export function buildSupportSummonDollPath(archivePath: string): string {
-  if (!archivePath.endsWith(".aic")) {
-    throw new Error(`Expected .aic path, received ${archivePath}.`);
-  }
-
-  return archivePath.replace(/\.aic$/u, "_doll.aic");
-}
-
-export function buildSupportSummonOverlayDocument(
-  sourceDocument: EquDocument,
-): EquDocument {
-  return replaceTopLevelSection(
-    sourceDocument,
-    createSingleFloatLiteralSection(
-      "attack damage rate",
-      SUPPORT_SUMMON_ATTACK_DAMAGE_RATE,
-    ),
-  );
 }
 
 export function sortBySupportPath<T extends { supportPath: string }>(

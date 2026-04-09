@@ -13,6 +13,7 @@ test("runCli list shows registered pipelines and mods", async () => {
   assert.match(output, /wild-strawberry-only/u);
   assert.match(output, /demo/u);
   assert.match(output, /example_wild_strawberry_hp_up/u);
+  assert.match(output, /soldoros_doll/u);
   assert.match(output, /2_3_choro_partset_skill_up/u);
 });
 

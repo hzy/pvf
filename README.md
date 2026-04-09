@@ -39,12 +39,13 @@ The repository now has a workspace-based mod pipeline system:
 ### Built-in mods
 
 - `example_wild_strawberry_hp_up`: changes Wild Strawberry HP recovery from `60` to `600`
-- `2_3_choro_partset_skill_up`: generates the merged Choro support equipment overlays
+- `soldoros_doll`: prepares the Soldoros doll APC and updates `aicharacter.lst`
+- `2_3_choro_partset_skill_up`: generates the merged Choro support equipment overlays and consumes the prerequisite doll APC
 
 ### Built-in pipelines
 
 - `wild-strawberry-only`: runs only the Wild Strawberry example mod
-- `demo`: runs `example_wild_strawberry_hp_up -> 2_3_choro_partset_skill_up`
+- `demo`: runs `example_wild_strawberry_hp_up -> soldoros_doll -> 2_3_choro_partset_skill_up`
 
 `demo` is the current default pipeline.
 
@@ -116,6 +117,7 @@ If you want to test a temporary sequence without editing `mods/pipelines.ts`, pa
 pnpm --filter pvf-mod-cli start build \
   --pipeline adhoc-preview \
   --mod example_wild_strawberry_hp_up \
+  --mod soldoros_doll \
   --mod 2_3_choro_partset_skill_up
 ```
 
