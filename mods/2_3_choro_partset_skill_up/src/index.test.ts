@@ -6,13 +6,13 @@ import test from "node:test";
 
 import { parseEquDocument } from "@pvf/equ-ast";
 
-import { PvfArchive } from "../../../packages/pvf-core/src/index.ts";
 import {
+  DEFAULT_ARCHIVE_PATH,
   applyChoroPartsetSkillUpMod,
   buildChoroPartsetSkillUpMod,
-  DEFAULT_ARCHIVE_PATH,
   generateChoroPartsetSkillUpMod,
 } from "./index.ts";
+import { PvfArchive } from "../../../packages/pvf-core/src/index.ts";
 
 const TARGET_SWORDMAN_SUPPORT_PATH = "equipment/character/common/support/support_3choro65.equ";
 const TARGET_SWORDMAN_OUTPUT_PATH = "equipment/character/common/support/support_440453.equ";
