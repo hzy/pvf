@@ -3,6 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import type { PvfMod } from "./index.ts";
 import {
@@ -14,7 +15,9 @@ import {
   writeOverlayDirectory,
 } from "./index.ts";
 
-const FIXTURE_ARCHIVE_PATH = new URL("../../../fixtures/Script.pvf", import.meta.url).pathname;
+const FIXTURE_ARCHIVE_PATH = fileURLToPath(
+  new URL("../../../fixtures/Script.pvf", import.meta.url),
+);
 const TARGET_PATH = "equipment/character/common/support/support_440003.equ";
 
 test("runPvfMods exposes previous overlays to later mods", async () => {

@@ -3,6 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import { PvfArchive } from "@pvf/pvf-core";
 import { applyPvfPipeline, buildPvfPipeline, createPvfModRegistry } from "@pvf/pvf-mod";
@@ -15,7 +16,9 @@ import {
   exampleWildStrawberryHpUpModDefinition,
 } from "./index.ts";
 
-const FIXTURE_ARCHIVE_PATH = new URL("../../../fixtures/Script.pvf", import.meta.url).pathname;
+const FIXTURE_ARCHIVE_PATH = fileURLToPath(
+  new URL("../../../fixtures/Script.pvf", import.meta.url),
+);
 
 test("example wild strawberry mod updates the rendered overlay", async () => {
   const result = await buildPvfPipeline({
