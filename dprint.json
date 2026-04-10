@@ -1,6 +1,7 @@
 {
   "$schema": "https://dprint.dev/schemas/v0.json",
   "lineWidth": 100,
+  "newLineKind": "crlf",
   "typescript": {
     "module.sortImportDeclarations": "maintain",
     "module.sortExportDeclarations": "maintain",
@@ -27,7 +28,8 @@
     "**/fixtures/**",
     "**/node_modules",
     "**/pnpm-lock.yaml",
-    "**/*-lock.json"
+    "**/*-lock.json",
+    ".reference_repos/**"
   ],
   "plugins": [
     "https://plugins.dprint.dev/typescript-0.95.15.wasm",
