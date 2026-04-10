@@ -109,8 +109,8 @@ function filterEtcAction(document: EquDocument): EquDocument {
 
       return !child.tokens.some(
         (token) =>
-          (token.kind === "string" || token.kind === "identifier") &&
-          token.value === "action/ex2.act",
+          (token.kind === "string" || token.kind === "identifier")
+          && token.value === "action/ex2.act",
       );
     }),
   };
