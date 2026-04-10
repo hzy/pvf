@@ -18,6 +18,10 @@ export const AI_CHARACTER_LIST_PATH = "aicharacter/aicharacter.lst";
 export const SUPPORT_SUMMON_SOURCE_NAME = "\u5251\u5723\u7d22\u5fb7\u7f57\u65af";
 export const SUPPORT_SUMMON_DOLL_NAME = "\u7d22\u5fb7\u7f57\u65af";
 export const SUPPORT_SUMMON_ATTACK_DAMAGE_RATE = "1.0";
+export const SUPPORT_SUMMON_SOURCE_HP_ITEM_ID = 1000;
+export const SUPPORT_SUMMON_SOURCE_MP_ITEM_ID = 1002;
+export const SUPPORT_SUMMON_DOLL_HP_ITEM_ID = 2600253;
+export const SUPPORT_SUMMON_DOLL_MP_ITEM_ID = 2600254;
 
 export interface SoldorosDollModSummary {
   sourceAicId: number;
@@ -90,7 +94,8 @@ export function buildSupportSummonDollDocument(
     ),
   );
   const withoutArmorSubtype = removeTopLevelSection(withDamageRate, "armor subtype");
-  return filterEtcAction(withoutArmorSubtype);
+  const filteredEtcAction = filterEtcAction(withoutArmorSubtype);
+  return replaceQuickItems(filteredEtcAction);
 }
 
 function filterEtcAction(document: EquDocument): EquDocument {
@@ -116,6 +121,77 @@ function filterEtcAction(document: EquDocument): EquDocument {
   };
 
   return replaceTopLevelSection(document, filteredSection);
+}
+
+function replaceQuickItems(document: EquDocument): EquDocument {
+  const quickItemSection = getFirstSection(document.children, "quick item");
+
+  if (!quickItemSection) {
+    throw new Error("Missing [quick item] section in summon APC source document.");
+  }
+
+  const statementIndex = quickItemSection.children.findIndex((child) => isStatement(child));
+  const statement = quickItemSection.children[statementIndex];
+
+  if (!statement || !isStatement(statement)) {
+    throw new Error("Missing [quick item] statement in summon APC source document.");
+  }
+
+  let intTokenIndex = -1;
+  let replacedIds = 0;
+  const nextStatement: EquStatementNode = {
+    ...statement,
+    tokens: statement.tokens.map((token) => {
+      if (token.kind !== "int") {
+        return token;
+      }
+
+      intTokenIndex += 1;
+
+      if (intTokenIndex === 0) {
+        if (token.value !== SUPPORT_SUMMON_SOURCE_HP_ITEM_ID) {
+          throw new Error(
+            `Expected first quick item id to be ${SUPPORT_SUMMON_SOURCE_HP_ITEM_ID}, received ${token.value}.`,
+          );
+        }
+
+        replacedIds += 1;
+        return {
+          ...token,
+          value: SUPPORT_SUMMON_DOLL_HP_ITEM_ID,
+        };
+      }
+
+      if (intTokenIndex === 2) {
+        if (token.value !== SUPPORT_SUMMON_SOURCE_MP_ITEM_ID) {
+          throw new Error(
+            `Expected second quick item id to be ${SUPPORT_SUMMON_SOURCE_MP_ITEM_ID}, received ${token.value}.`,
+          );
+        }
+
+        replacedIds += 1;
+        return {
+          ...token,
+          value: SUPPORT_SUMMON_DOLL_MP_ITEM_ID,
+        };
+      }
+
+      return token;
+    }),
+  };
+
+  if (replacedIds !== 2) {
+    throw new Error("Expected to replace two quick item ids in summon APC source document.");
+  }
+
+  const nextQuickItemSection: EquSectionNode = {
+    ...quickItemSection,
+    children: quickItemSection.children.map((child, index) =>
+      index === statementIndex ? nextStatement : child
+    ),
+  };
+
+  return replaceTopLevelSection(document, nextQuickItemSection);
 }
 
 export async function tryFindAiCharacterByName(
