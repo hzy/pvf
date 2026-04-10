@@ -103,6 +103,18 @@ export function replaceTopLevelSection(
   };
 }
 
+export function removeTopLevelSection(
+  document: EquDocument,
+  name: string,
+): EquDocument {
+  return {
+    ...document,
+    children: document.children.filter(
+      (node) => !isSection(node) || node.name !== name,
+    ),
+  };
+}
+
 export function createSingleStringSection(name: string, value: string): EquSectionNode {
   return createSection(name, [createStatement([createStringToken(value)])]);
 }

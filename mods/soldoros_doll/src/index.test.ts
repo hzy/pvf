@@ -63,6 +63,9 @@ test("soldoros mod creates a doll APC overlay and list entry", async () => {
   assert.ok(aiCharacterListOverlay);
   assert.match(String(summonApcOverlay.content), /\[minimum info\][\s\S]*索德罗斯/u);
   assert.match(String(summonApcOverlay.content), /\[attack damage rate\]\r?\n1\.0/u);
+  assert.doesNotMatch(String(summonApcOverlay.content), /\[armor subtype\]/u);
+  assert.match(String(summonApcOverlay.content), /\[etc action\][\s\S]*action\/ex\.act/u);
+  assert.doesNotMatch(String(summonApcOverlay.content), /ex2\.act/u);
   assert.match(
     String(aiCharacterListOverlay.content),
     /1520\t`_jojochan\/swordman\/soldoros\/soldoros_doll\.aic`/u,
