@@ -34,10 +34,7 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile --ignore-scripts
-
-      - name: Prepare fixtures
-        run: pnpm prepare
+        run: pnpm install --frozen-lockfile
 
       - name: Run checks
         run: pnpm check
