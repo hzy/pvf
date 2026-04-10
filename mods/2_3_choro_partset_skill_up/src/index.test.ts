@@ -3,6 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import { parseEquDocument } from "@pvf/equ-ast";
 import { PvfArchive } from "@pvf/pvf-core";
@@ -24,12 +25,16 @@ import {
 import type { ChoroPartsetSkillUpModSummary } from "./index.ts";
 import {
   SOLDOROS_DOLL_MOD_ID,
+  SUPPORT_SUMMON_DOLL_HP_ITEM_ID,
+  SUPPORT_SUMMON_DOLL_MP_ITEM_ID,
   buildSupportSummonDollDocument,
   soldorosDollModDefinition,
 } from "../../soldoros_doll/src/index.ts";
 import type { SoldorosDollModSummary } from "../../soldoros_doll/src/index.ts";
 
-const FIXTURE_ARCHIVE_PATH = new URL("../../../fixtures/Script.pvf", import.meta.url).pathname;
+const FIXTURE_ARCHIVE_PATH = fileURLToPath(
+  new URL("../../../fixtures/Script.pvf", import.meta.url),
+);
 const SOURCE_SUMMON_APC_PATH = "aicharacter/_jojochan/swordman/soldoros/soldoros.aic";
 const TARGET_SWORDMAN_SUPPORT_PATH = "equipment/character/common/support/support_3choro65.equ";
 const TARGET_SWORDMAN_OUTPUT_PATH = "equipment/character/common/support/support_440453.equ";
@@ -38,6 +43,23 @@ const TARGET_EXORCIST_OUTPUT_PATH = "equipment/character/common/support/support_
 const TARGET_AVENGER_SUPPORT_PATH = "equipment/character/common/support/support_3choro84.equ";
 const TARGET_AVENGER_OUTPUT_PATH = "equipment/character/common/support/support_440472.equ";
 const EQUIPMENT_LIST_PATH = "equipment/equipment.lst";
+
+function getQuickItemInts(content: string): number[] {
+  const document = parseEquDocument(content);
+  const quickItemSection = document.children.find(
+    (node): node is (typeof document.children)[number] & { kind: "section" } =>
+      node.kind === "section" && node.name === "quick item",
+  );
+
+  assert.ok(quickItemSection);
+  const statement = quickItemSection.children.find(
+    (child): child is (typeof quickItemSection.children)[number] & { kind: "statement" } =>
+      child.kind === "statement",
+  );
+
+  assert.ok(statement);
+  return statement.tokens.flatMap((token) => token.kind === "int" ? [token.value] : []);
+}
 const TARGET_SUMMON_APC_PATH = "aicharacter/_jojochan/swordman/soldoros/soldoros_doll.aic";
 const TARGET_SUMMON_APC_ID = 1520;
 const CUSTOM_SUMMON_APC_PATH = "aicharacter/_jojochan/swordman/soldoros/soldoros_custom_doll.aic";
@@ -219,6 +241,12 @@ test("choro mod builds generated support overlays through the pipeline", async (
   assert.ok(summonApcOverlay);
   assert.match(String(summonApcOverlay.content), /\[minimum info\][\s\S]*索德罗斯/u);
   assert.match(String(summonApcOverlay.content), /\[attack damage rate\]\r?\n1\.0/u);
+  assert.deepEqual(getQuickItemInts(String(summonApcOverlay.content)).slice(0, 4), [
+    SUPPORT_SUMMON_DOLL_HP_ITEM_ID,
+    1000,
+    SUPPORT_SUMMON_DOLL_MP_ITEM_ID,
+    1000,
+  ]);
 
   const swordmanDocument = parseEquDocument(String(swordmanOverlay.content));
   const explainIndex = swordmanDocument.children.findIndex(
@@ -300,6 +328,12 @@ test("choro mod applies cleanly through the pipeline", async () => {
       );
       assert.match(summonApcText, /\[minimum info\][\s\S]*索德罗斯/u);
       assert.match(summonApcText, /\[attack damage rate\]\r?\n1\.0/u);
+      assert.deepEqual(getQuickItemInts(summonApcText).slice(0, 4), [
+        SUPPORT_SUMMON_DOLL_HP_ITEM_ID,
+        1000,
+        SUPPORT_SUMMON_DOLL_MP_ITEM_ID,
+        1000,
+      ]);
       assert.match(
         aiCharacterListText,
         /1520\t`_jojochan\/swordman\/soldoros\/soldoros_doll\.aic`/u,
