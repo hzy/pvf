@@ -138,7 +138,6 @@ function replaceQuickItems(document: EquDocument): EquDocument {
   }
 
   let intTokenIndex = -1;
-  let replacedIds = 0;
   const nextStatement: EquStatementNode = {
     ...statement,
     tokens: statement.tokens.map((token) => {
@@ -149,40 +148,32 @@ function replaceQuickItems(document: EquDocument): EquDocument {
       intTokenIndex += 1;
 
       if (intTokenIndex === 0) {
-        if (token.value !== SUPPORT_SUMMON_SOURCE_HP_ITEM_ID) {
-          throw new Error(
-            `Expected first quick item id to be ${SUPPORT_SUMMON_SOURCE_HP_ITEM_ID}, received ${token.value}.`,
-          );
-        }
-
-        replacedIds += 1;
         return {
           ...token,
-          value: SUPPORT_SUMMON_DOLL_HP_ITEM_ID,
+          value: normalizeQuickItemId(
+            token.value,
+            SUPPORT_SUMMON_SOURCE_HP_ITEM_ID,
+            SUPPORT_SUMMON_DOLL_HP_ITEM_ID,
+            "first",
+          ),
         };
       }
 
       if (intTokenIndex === 2) {
-        if (token.value !== SUPPORT_SUMMON_SOURCE_MP_ITEM_ID) {
-          throw new Error(
-            `Expected second quick item id to be ${SUPPORT_SUMMON_SOURCE_MP_ITEM_ID}, received ${token.value}.`,
-          );
-        }
-
-        replacedIds += 1;
         return {
           ...token,
-          value: SUPPORT_SUMMON_DOLL_MP_ITEM_ID,
+          value: normalizeQuickItemId(
+            token.value,
+            SUPPORT_SUMMON_SOURCE_MP_ITEM_ID,
+            SUPPORT_SUMMON_DOLL_MP_ITEM_ID,
+            "second",
+          ),
         };
       }
 
       return token;
     }),
   };
-
-  if (replacedIds !== 2) {
-    throw new Error("Expected to replace two quick item ids in summon APC source document.");
-  }
 
   const nextQuickItemSection: EquSectionNode = {
     ...quickItemSection,
@@ -192,6 +183,21 @@ function replaceQuickItems(document: EquDocument): EquDocument {
   };
 
   return replaceTopLevelSection(document, nextQuickItemSection);
+}
+
+function normalizeQuickItemId(
+  currentValue: number,
+  sourceValue: number,
+  targetValue: number,
+  ordinal: string,
+): number {
+  if (currentValue === sourceValue || currentValue === targetValue) {
+    return targetValue;
+  }
+
+  throw new Error(
+    `Expected ${ordinal} quick item id to be ${sourceValue} or ${targetValue}, received ${currentValue}.`,
+  );
 }
 
 export async function tryFindAiCharacterByName(

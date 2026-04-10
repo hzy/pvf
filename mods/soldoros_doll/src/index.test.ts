@@ -7,13 +7,14 @@ import { fileURLToPath } from "node:url";
 
 import { parseEquDocument } from "@pvf/equ-ast";
 import { PvfArchive } from "@pvf/pvf-core";
-import { applyPvfPipeline, buildPvfPipeline, createPvfModRegistry } from "@pvf/pvf-mod";
+import { applyPvfPipeline, buildPvfPipeline, createPvfModRegistry, runPvfMods } from "@pvf/pvf-mod";
 
 import {
   AI_CHARACTER_LIST_PATH,
   SOLDOROS_DOLL_MOD_ID,
   SUPPORT_SUMMON_DOLL_HP_ITEM_ID,
   SUPPORT_SUMMON_DOLL_MP_ITEM_ID,
+  createSoldorosDollMod,
   soldorosDollModDefinition,
 } from "./index.ts";
 import type { SoldorosDollModSummary } from "./index.ts";
@@ -154,4 +155,28 @@ test("soldoros mod applies cleanly through the pipeline", async () => {
   } finally {
     await rm(workDir, { recursive: true, force: true });
   }
+});
+
+test("soldoros mod reapplies cleanly when the doll APC already exists", async () => {
+  const result = await runPvfMods({
+    archivePath: FIXTURE_ARCHIVE_PATH,
+    mods: [createSoldorosDollMod(), createSoldorosDollMod()],
+  });
+  const firstSummary = result.executedMods[0]?.result as SoldorosDollModSummary | undefined;
+  const secondSummary = result.executedMods[1]?.result as SoldorosDollModSummary | undefined;
+  const summonApcOverlay = result.overlays.find(
+    (overlay) => overlay.path === TARGET_SUMMON_APC_PATH,
+  );
+
+  assert.ok(firstSummary);
+  assert.ok(secondSummary);
+  assert.ok(summonApcOverlay);
+  assert.equal(firstSummary.created, true);
+  assert.equal(secondSummary.created, false);
+  assert.deepEqual(getQuickItemInts(String(summonApcOverlay.content)).slice(0, 4), [
+    SUPPORT_SUMMON_DOLL_HP_ITEM_ID,
+    1000,
+    SUPPORT_SUMMON_DOLL_MP_ITEM_ID,
+    1000,
+  ]);
 });
